@@ -17,7 +17,7 @@ class MonitorManager {
 
   public:
     MonitorManager() = delete;
-    explicit MonitorManager(io_context &io) : _unixServer(io, utils::getLocalKekDir() + "/sockets/Executable.MonitorManager") {
+    explicit MonitorManager(io_context &io) : _unixServer(io, utils::getLocalKekDir() + "/sockets/MonitorManager") {
         _unixServer._callbacks[COMMANDS::PING] = &MonitorManager::onPing;
     }
 
