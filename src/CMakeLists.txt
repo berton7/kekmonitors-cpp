@@ -6,3 +6,6 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 
 add_executable(moman moman.cpp comms/msg.cpp comms/server.cpp ../include/kekmonitors/utils.hpp)
 target_link_libraries(moman pthread)
+
+add_executable(stopmm stopmm.cpp)
+target_link_libraries(stopmm pthread)
