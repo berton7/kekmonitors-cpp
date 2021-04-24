@@ -56,6 +56,7 @@ class UnixServer {
 
   public:
     UnixServer(io_context &io, std::string serverPath);
+    UnixServer(io_context &io, std::string serverPath, CallbackMap callbacks);
     ~UnixServer();
     void startAccepting();
     Response _handleCallback(const Cmd &cmd);

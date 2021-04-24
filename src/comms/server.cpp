@@ -89,6 +89,11 @@ UnixServer::UnixServer(io_context &io, std::string serverPath)
     startAccepting();
 };
 
+UnixServer::UnixServer(io_context &io, std::string serverPath, CallbackMap callbacks): _io(io), _serverPath(std::move(serverPath)),
+                                                                                        _acceptor(io, local::stream_protocol::endpoint(serverPath), true), _callbacks(std::move(callbacks)){
+    startAccepting();
+}
+
 UnixServer::~UnixServer() {
     std::cout << "Closing server" << std::endl;
     ::unlink(_serverPath.c_str());
