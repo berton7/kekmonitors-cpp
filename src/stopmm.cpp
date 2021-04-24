@@ -31,7 +31,7 @@ void onConnect(const error_code &err, local::stream_protocol::socket *socket)
         std::cerr << "onWrite: " << err.message() << std::endl;
         return;
     }
-    async_write(*socket, buffer("{\"_Cmd__cmd\": 1}"), std::bind(&onWrite, _1, _2, socket));
+    async_write(*socket, buffer("{\"_Cmd__cmd\": 24}"), std::bind(&onWrite, _1, _2, socket));
 }
 
 int main()

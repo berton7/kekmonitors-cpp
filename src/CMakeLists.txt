@@ -9,3 +9,6 @@ target_link_libraries(moman pthread)
 
 add_executable(stopmm stopmm.cpp)
 target_link_libraries(stopmm pthread)
+
+add_executable(cli moman_cli.cpp comms/msg.cpp)
+target_link_libraries(cli pthread)
