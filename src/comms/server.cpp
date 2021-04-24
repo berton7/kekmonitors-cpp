@@ -14,13 +14,13 @@ IConnection::~IConnection() {
 
 void IConnection::onTimeout(const std::error_code &err) {
     if (err) {
-        if (err != asio::error::operation_aborted) {
+        if (err != error::operation_aborted) {
             std::cerr << "onTimeout: " << err.message() << ": " << err.message()
                       << std::endl;
             return;
         }
     } else {
-        std::cout << "Operation timed out: " << err.message() << std::endl;
+        std::cout << "Connection timed out" << std::endl;
         _socket.close();
     }
 }
@@ -53,8 +53,7 @@ void CmdConnection::onRead(const std::error_code &err, size_t read) {
         } catch (std::exception &e) {
             std::cerr << e.what() << std::endl;
         }
-    } else if (err && err != asio::error::eof &&
-               err != asio::error::operation_aborted) {
+    } else if (err && err != asio::error::operation_aborted) {
         std::cerr << "CmdConnection::onRead: " << err.value() << " "
                   << err.message() << std::endl;
     }
@@ -74,11 +73,14 @@ std::shared_ptr<CmdConnection> CmdConnection::create(io_context &io,
 void CmdConnection::asyncRead() {
     _timeout.expires_after(std::chrono::seconds(1));
     _timeout.async_wait(std::bind(&CmdConnection::onTimeout, this, _1));
-    async_read(_socket, asio::buffer(_buffer),
-               std::bind(&CmdConnection::onRead, shared_from_this(), _1, _2));
+    _socket.async_read_some(
+        asio::buffer(_buffer),
+        std::bind(&CmdConnection::onRead, shared_from_this(), _1, _2));
 }
-void CmdConnection::onWrite(const error_code &err, size_t read){
-
+void CmdConnection::onWrite(const error_code &err, size_t read) {
+    if (err)
+        std::cerr << "onWrite: " << err.value() << " -- " << err.message()
+                  << std::endl;
 };
 
 UnixServer::UnixServer(io_context &io, std::string serverPath)
@@ -89,7 +91,6 @@ UnixServer::UnixServer(io_context &io, std::string serverPath)
 
 UnixServer::~UnixServer() {
     std::cout << "Closing server" << std::endl;
-    _acceptor.close();
     ::unlink(_serverPath.c_str());
 };
 
@@ -113,23 +114,12 @@ void UnixServer::onConnect(const std::error_code &err,
 
 Response UnixServer::_handleCallback(const Cmd &cmd) {
     std::cout << "Received cmd: " << cmd.getCmd() << std::endl;
-    if (cmd.getCmd() == COMMANDS::STOP) {
-        _acceptor.close();
-        return Response::okResponse();
-    } else
-        try {
-            return _callbacks.at(cmd.getCmd())(cmd);
-        } catch (std::out_of_range &e) {
-            return Response::badResponse();
-        }
+    try {
+        return _callbacks.at(cmd.getCmd())(cmd);
+    } catch (std::out_of_range &e) {
+        return Response::badResponse();
+    }
 }
 
-/*
-ResponseConnection::ResponseConnection(io_context &io) : IConnection(io) {}
-std::shared_ptr<CmdConnection> ResponseConnection::create(io_context &io) {
-    return std::shared_ptr<CmdConnection>();
-}
-void ResponseConnection::asyncWrite() {}
-void ResponseConnection::onWrite(const error_code &err, size_t read) {}
- */
+void UnixServer::shutdown() { _acceptor.close(); }
 } // namespace kekmonitors

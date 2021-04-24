@@ -17,11 +17,19 @@ class MonitorManager {
 
   public:
     MonitorManager() = delete;
-    explicit MonitorManager(io_context &io) : _unixServer(io, utils::getLocalKekDir() + "/sockets/MonitorManager") {
+    explicit MonitorManager(io_context &io)
+        : _unixServer(io, utils::getLocalKekDir() + "/sockets/MonitorManager") {
         _unixServer._callbacks[COMMANDS::PING] = &MonitorManager::onPing;
+        _unixServer._callbacks[COMMANDS::MM_STOP_MONITOR_MANAGER] =
+            std::bind(&MonitorManager::shutdown, this);
     }
 
     ~MonitorManager() = default;
+
+    Response shutdown() {
+        _unixServer.shutdown();
+        return Response::okResponse();
+    }
 };
 } // namespace kekmonitors
 

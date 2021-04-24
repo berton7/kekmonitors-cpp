@@ -40,19 +40,6 @@ class CmdConnection : public IConnection,
     void asyncRead();
 };
 
-/*
-class ResponseConnection : public IConnection,
-                      public std::enable_shared_from_this<CmdConnection> {
-  private:
-    void onWrite(const std::error_code &err, size_t read);
-
-  public:
-    explicit ResponseConnection(io_context &io);
-    static std::shared_ptr<CmdConnection> create(io_context &io);
-    void asyncWrite();
-};
-*/
-
 class UnixServer {
   private:
     local::stream_protocol::acceptor _acceptor;
@@ -71,5 +58,7 @@ class UnixServer {
     ~UnixServer();
     void startAccepting();
     Response _handleCallback(const Cmd &cmd);
+    void shutdown();
 };
 } // namespace kekmonitors
+
