@@ -10,6 +10,7 @@ using namespace std::chrono;
 
 typedef std::function<kekmonitors::Response(const kekmonitors::Cmd &)>
     CmdCallback;
+typedef std::map<const kekmonitors::COMMANDS, CmdCallback> CallbackMap;
 
 namespace kekmonitors {
 class IConnection {
@@ -47,7 +48,7 @@ class UnixServer {
     io_service &_io;
 
   public:
-    std::map<const COMMANDS, CmdCallback> _callbacks;
+    CallbackMap _callbacks;
 
   private:
     void onConnect(const std::error_code &err,
