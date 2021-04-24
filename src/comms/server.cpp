@@ -66,7 +66,7 @@ std::shared_ptr<CmdConnection> CmdConnection::create(io_context &io,
 void CmdConnection::asyncRead() {
     _timeout.expires_after(std::chrono::seconds(1));
     _timeout.async_wait(std::bind(&CmdConnection::onTimeout, this, _1));
-    _socket.async_read_some(
+    async_read(_socket,
         asio::buffer(_buffer),
         std::bind(&CmdConnection::onRead, shared_from_this(), _1, _2));
 }
