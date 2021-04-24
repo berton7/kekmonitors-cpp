@@ -35,16 +35,9 @@ void CmdConnection::onRead(const std::error_code &err, size_t read) {
             auto j = json::parse(_buffer);
             bool success = cmd.fromJson(j);
             if (success) {
-                if (_socket.is_open())
-                    async_write(_socket, asio::buffer(_cb(cmd).toJson().dump()),
-                                std::bind(&CmdConnection::onWrite,
-                                          shared_from_this(), _1, _2));
-                else {
-                    std::cerr << "Socket is closed, executing cb but ignoring "
-                                 "the Response"
-                              << std::endl;
-                    _cb(cmd);
-                }
+                async_write(_socket, asio::buffer(_cb(cmd).toJson().dump()),
+                            std::bind(&CmdConnection::onWrite,
+                                      shared_from_this(), _1, _2));
             } else {
                 std::cerr
                     << "Received connection but couldn't parse from json: "
