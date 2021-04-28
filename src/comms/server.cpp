@@ -112,7 +112,9 @@ Response UnixServer::_handleCallback(const Cmd &cmd) {
     try {
         return _callbacks.at(cmd.getCmd())(cmd);
     } catch (std::out_of_range &e) {
-        return Response::badResponse();
+        Response resp;
+        resp.setError(ERRORS::UNRECOGNIZED_COMMAND);
+        return resp;
     }
 }
 

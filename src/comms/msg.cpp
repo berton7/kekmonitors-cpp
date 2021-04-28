@@ -73,13 +73,11 @@ void Response::setInfo(const std::string &info) { _info = info; }
 Response Response::okResponse() {
     Response resp;
     resp.setError(ERRORS::OK);
-    resp.setInfo("Default response generated from okResponse()");
     return resp;
 }
 Response Response::badResponse() {
     Response resp;
     resp.setError(ERRORS::OTHER_ERROR);
-    resp.setInfo("Default response generated from badResponse()");
     return resp;
 }
 }; // namespace kekmonitors
