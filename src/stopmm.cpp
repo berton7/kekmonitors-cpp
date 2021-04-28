@@ -1,6 +1,8 @@
 #include <asio.hpp>
 #include <iostream>
 #include <kekmonitors/utils.hpp>
+#include <kekmonitors/comms/msg.hpp>
+#include <functional>
 
 using namespace asio;
 using namespace std::placeholders;
@@ -31,11 +33,17 @@ void onConnect(const error_code &err, local::stream_protocol::socket *socket)
         std::cerr << "onWrite: " << err.message() << std::endl;
         return;
     }
-    async_write(*socket, buffer("{\"_Cmd__cmd\": 24}"), std::bind(&onWrite, _1, _2, socket));
+    kekmonitors::Cmd cmd;
+    cmd.setCmd(kekmonitors::COMMANDS::MM_STOP_MONITOR_MANAGER);
+    async_write(*socket, buffer(cmd.toJson().dump()), std::bind(&onWrite, _1, _2, socket));
 }
 
 int main()
 {
+    KDBG("DEBUG");
+    KINFO("INFO");
+    KWARN("WARNING");
+    KERR("ERROR");
     io_context io;
     local::stream_protocol::socket socket(io);
     socket.async_connect(local::stream_protocol::endpoint(kekmonitors::utils::getLocalKekDir() + "/sockets/MonitorManager"),std::bind(&onConnect, _1, &socket));

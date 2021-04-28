@@ -1,6 +1,7 @@
 #pragma once
 #include <nlohmann/json.hpp>
 #include <string>
+#include <kekmonitors/core.hpp>
 
 using json = nlohmann::json;
 

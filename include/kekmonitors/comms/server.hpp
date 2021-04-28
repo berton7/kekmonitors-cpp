@@ -1,11 +1,10 @@
 #pragma once
 #include <asio.hpp>
 #include <chrono>
+#include <kekmonitors/core.hpp>
 #include <kekmonitors/comms/msg.hpp>
-#include <kekmonitors/comms/server.hpp>
 
 using namespace asio;
-using namespace std::placeholders;
 using namespace std::chrono;
 
 typedef std::function<kekmonitors::Response(const kekmonitors::Cmd &)>

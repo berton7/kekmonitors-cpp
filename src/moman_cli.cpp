@@ -11,13 +11,20 @@ int main(int argc, char *argv[])
 		std::cout << "Usage: " << argv[0] << " <cmd> [payload]" << std::endl;
 		return 1;
 	}
-	if (argv[1] == "--list-cmd")
+	if (!std::strcmp(argv[1], "--list-cmd"))
 	{
-		std::cout << "Not implemented" << std::endl;
+		std::cerr << "Not implemented" << std::endl;
 		return 1;
 	}
 	kekmonitors::Cmd cmd;
-	cmd.setCmd((kekmonitors::COMMANDS)std::atoi(argv[1]));
+        char *invalidPtr = nullptr;
+        int val = (int)std::strtol(argv[1], &invalidPtr, 10);
+        if (*invalidPtr != '\0')
+        {
+            std::cerr << "Not a number: " << invalidPtr << std::endl;
+            return 2;
+        }
+	cmd.setCmd((kekmonitors::COMMANDS)val);
 	io_context io;
 	local::stream_protocol::socket sock(io);
 	sock.connect(local::stream_protocol::endpoint("/home/berton/.kekmonitors/sockets/MonitorManager"));

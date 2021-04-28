@@ -1,5 +1,4 @@
 #include <iostream>
-#include <kekmonitors/comms/msg.hpp>
 #include <kekmonitors/moman.hpp>
 #include <kekmonitors/utils.hpp>
 

@@ -1,12 +1,15 @@
 #include <iostream>
 #include <kekmonitors/comms/msg.hpp>
 #include <kekmonitors/comms/server.hpp>
+#include <kekmonitors/utils.hpp>
+
+using namespace std::placeholders;
 
 namespace kekmonitors {
 IConnection::IConnection(io_context &io)
     : _buffer(1024), _socket(io), _timeout(io){};
 IConnection::~IConnection() {
-    std::cout << "Destroying connection" << std::endl;
+    KDBG("Destroying connection");
     if (_socket.is_open())
         _socket.close();
     _timeout.cancel();
@@ -15,12 +18,11 @@ IConnection::~IConnection() {
 void IConnection::onTimeout(const std::error_code &err) {
     if (err) {
         if (err != error::operation_aborted) {
-            std::cerr << "onTimeout: " << err.message() << ": " << err.message()
-                      << std::endl;
+            KWARN(err.message());
             return;
         }
     } else {
-        std::cout << "Connection timed out" << std::endl;
+        KDBG("Connection timed out");
         _socket.close();
     }
 }
@@ -39,22 +41,19 @@ void CmdConnection::onRead(const std::error_code &err, size_t read) {
                             std::bind(&CmdConnection::onWrite,
                                       shared_from_this(), _1, _2));
             } else {
-                std::cerr
-                    << "Received connection but couldn't parse from json: "
-                    << _buffer.data() << std::endl;
+                KINFO("Received connection but couldn't parse from json: " + std::string(_buffer.data()));
             }
         } catch (std::exception &e) {
-            std::cerr << e.what() << std::endl;
+            KINFO(e.what());
         }
     } else if (err && err != asio::error::operation_aborted) {
-        std::cerr << "CmdConnection::onRead: " << err.value() << " "
-                  << err.message() << std::endl;
+        KWARN(err.message());
     }
 };
 
 CmdConnection::CmdConnection(io_context &io, const CmdCallback &&cb)
     : IConnection(io), _cb(cb) {
-    std::cout << "Allocating new connection" << std::endl;
+    KDBG("Allocating new connection");
 }
 
 std::shared_ptr<CmdConnection> CmdConnection::create(io_context &io,
@@ -72,8 +71,7 @@ void CmdConnection::asyncRead() {
 }
 void CmdConnection::onWrite(const error_code &err, size_t read) {
     if (err)
-        std::cerr << "onWrite: " << err.value() << " -- " << err.message()
-                  << std::endl;
+        KWARN(err.message());
 };
 
 UnixServer::UnixServer(io_context &io, std::string serverPath)
@@ -88,7 +86,7 @@ UnixServer::UnixServer(io_context &io, std::string serverPath, CallbackMap callb
 }
 
 UnixServer::~UnixServer() {
-    std::cout << "Closing server" << std::endl;
+    KINFO("Closing server");
     ::unlink(_serverPath.c_str());
 };
 
@@ -106,8 +104,7 @@ void UnixServer::onConnect(const std::error_code &err,
         connection->asyncRead();
         startAccepting();
     } else if (err != asio::error::operation_aborted)
-        std::cout << "onConnect: " << err.value() << " " << err.message()
-                  << std::endl;
+        KWARN(err.message());
 }
 
 Response UnixServer::_handleCallback(const Cmd &cmd) {

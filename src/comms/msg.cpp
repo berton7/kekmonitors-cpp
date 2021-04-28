@@ -1,5 +1,6 @@
 #include <iostream>
 #include <kekmonitors/comms/msg.hpp>
+#include <kekmonitors/utils.hpp>
 
 namespace kekmonitors {
 
