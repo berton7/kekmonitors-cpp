@@ -1,5 +1,5 @@
 //
-// detail/config.hpp
+// detail/Config.hpp
 // ~~~~~~~~~~~~~~~~~
 //
 // Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
@@ -37,7 +37,7 @@
 # define ASIO_DISABLE_BOOST_THROW_EXCEPTION 1
 # define ASIO_DISABLE_BOOST_WORKAROUND 1
 #else // defined(ASIO_STANDALONE)
-# include <boost/config.hpp>
+# include <boost/Config.hpp>
 # include <boost/version.hpp>
 # define ASIO_HAS_BOOST_CONFIG 1
 #endif // defined(ASIO_STANDALONE)

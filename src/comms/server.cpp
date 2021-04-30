@@ -3,8 +3,6 @@
 #include <kekmonitors/comms/server.hpp>
 #include <kekmonitors/utils.hpp>
 
-using namespace std::placeholders;
-
 namespace kekmonitors {
 IConnection::IConnection(io_context &io)
     : _buffer(1024), _socket(io), _timeout(io){};
@@ -39,7 +37,7 @@ void CmdConnection::onRead(const std::error_code &err, size_t read) {
             if (success) {
                 async_write(_socket, asio::buffer(_cb(cmd).toJson().dump()),
                             std::bind(&CmdConnection::onWrite,
-                                      shared_from_this(), _1, _2));
+                                      shared_from_this(), std::placeholders::_1, std::placeholders::_2));
             } else {
                 KINFO("Received connection but couldn't parse from json: " + std::string(_buffer.data()));
             }
@@ -64,24 +62,24 @@ std::shared_ptr<CmdConnection> CmdConnection::create(io_context &io,
 
 void CmdConnection::asyncRead() {
     _timeout.expires_after(std::chrono::seconds(1));
-    _timeout.async_wait(std::bind(&CmdConnection::onTimeout, this, _1));
+    _timeout.async_wait(std::bind(&CmdConnection::onTimeout, this, std::placeholders::_1));
     async_read(_socket,
         asio::buffer(_buffer),
-        std::bind(&CmdConnection::onRead, shared_from_this(), _1, _2));
+        std::bind(&CmdConnection::onRead, shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 }
 void CmdConnection::onWrite(const error_code &err, size_t read) {
     if (err)
         KWARN(err.message());
 };
 
-UnixServer::UnixServer(io_context &io, std::string serverPath)
-    : _io(io), _serverPath(std::move(serverPath)),
-      _acceptor(io, local::stream_protocol::endpoint(serverPath), true) {
+UnixServer::UnixServer(io_context &io, const Config &config)
+    : _io(io), _serverPath(config.parser.get<std::string>("GlobalConfig.socket_path")),
+      _acceptor(io, local::stream_protocol::endpoint(_serverPath), true) {
     startAccepting();
 };
 
-UnixServer::UnixServer(io_context &io, std::string serverPath, CallbackMap callbacks): _io(io), _serverPath(std::move(serverPath)),
-                                                                                        _acceptor(io, local::stream_protocol::endpoint(serverPath), true), _callbacks(std::move(callbacks)){
+UnixServer::UnixServer(io_context &io, const Config &config, CallbackMap callbacks): _io(io), _serverPath(config.parser.get<std::string>("GlobalConfig.socket_path")),
+                                                                                        _acceptor(io, local::stream_protocol::endpoint(_serverPath), true), _callbacks(std::move(callbacks)){
     startAccepting();
 }
 
@@ -92,10 +90,10 @@ UnixServer::~UnixServer() {
 
 void UnixServer::startAccepting() {
     auto connection = CmdConnection::create(
-        _io, std::bind(&UnixServer::_handleCallback, this, _1));
+        _io, std::bind(&UnixServer::_handleCallback, this, std::placeholders::_1));
     _acceptor.async_accept(
         connection->getSocket(),
-        std::bind(&UnixServer::onConnect, this, _1, connection));
+        std::bind(&UnixServer::onConnect, this, std::placeholders::_1, connection));
 };
 
 void UnixServer::onConnect(const std::error_code &err,

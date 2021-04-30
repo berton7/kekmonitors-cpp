@@ -1,6 +1,5 @@
 #include <iostream>
 #include <kekmonitors/moman.hpp>
-#include <kekmonitors/utils.hpp>
 
 using namespace asio;
 using namespace std::placeholders;
@@ -17,7 +16,7 @@ class MonitorManager {
   public:
     MonitorManager() = delete;
     explicit MonitorManager(io_context &io)
-        : _unixServer(io, utils::getLocalKekDir() + "/sockets/MonitorManager",
+        : _unixServer(io, Config(),
                       {{COMMANDS::PING, &MonitorManager::onPing},
                        {COMMANDS::MM_STOP_MONITOR_MANAGER,
                         std::bind(&MonitorManager::shutdown, this)}}) {}

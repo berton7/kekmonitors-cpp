@@ -3,9 +3,9 @@
 #include <chrono>
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/comms/msg.hpp>
+#include <kekmonitors/config.hpp>
 
 using namespace asio;
-using namespace std::chrono;
 
 typedef std::function<kekmonitors::Response(const kekmonitors::Cmd &)>
     CmdCallback;
@@ -54,8 +54,8 @@ class UnixServer {
                    std::shared_ptr<CmdConnection> &connection);
 
   public:
-    UnixServer(io_context &io, std::string serverPath);
-    UnixServer(io_context &io, std::string serverPath, CallbackMap callbacks);
+    UnixServer(io_context &io, const Config &config);
+    UnixServer(io_context &io, const Config &config, CallbackMap callbacks);
     ~UnixServer();
     void startAccepting();
     Response _handleCallback(const Cmd &cmd);
