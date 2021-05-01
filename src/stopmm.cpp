@@ -40,10 +40,6 @@ void onConnect(const error_code &err, local::stream_protocol::socket *socket)
 
 int main()
 {
-    KDBG("DEBUG");
-    KINFO("INFO");
-    KWARN("WARNING");
-    KERR("ERROR");
     io_context io;
     local::stream_protocol::socket socket(io);
     socket.async_connect(local::stream_protocol::endpoint(kekmonitors::utils::getLocalKekDir() + "/sockets/MonitorManager"),std::bind(&onConnect, _1, &socket));

@@ -73,13 +73,13 @@ void CmdConnection::onWrite(const error_code &err, size_t read) {
 };
 
 UnixServer::UnixServer(io_context &io, const Config &config)
-    : _io(io), _serverPath(config.parser.get<std::string>("GlobalConfig.socket_path")),
-      _acceptor(io, local::stream_protocol::endpoint(_serverPath), true) {
+    : _io(io), _serverPath(config.parser.get<std::string>("GlobalConfig.socket_path") + "/MonitorManager"),
+      _acceptor(io, local::stream_protocol::endpoint(config.parser.get<std::string>("GlobalConfig.socket_path") + "/MonitorManager"), true) {
     startAccepting();
 };
 
-UnixServer::UnixServer(io_context &io, const Config &config, CallbackMap callbacks): _io(io), _serverPath(config.parser.get<std::string>("GlobalConfig.socket_path")),
-                                                                                        _acceptor(io, local::stream_protocol::endpoint(_serverPath), true), _callbacks(std::move(callbacks)){
+UnixServer::UnixServer(io_context &io, const Config &config, CallbackMap callbacks): _io(io), _serverPath(config.parser.get<std::string>("GlobalConfig.socket_path") + "/MonitorManager"),
+                                                                                        _acceptor(io, local::stream_protocol::endpoint(config.parser.get<std::string>("GlobalConfig.socket_path") + "/MonitorManager"), true), _callbacks(std::move(callbacks)){
     startAccepting();
 }
 

@@ -46,6 +46,5 @@ Config::Config() {
     configPath.append("config.cfg");
     utils::getFileIfExistsElseCreate(configPath, defaultConfig);
     pt::read_ini(configPath, parser);
-    KDBG("File path is " + configPath);
 }
 } // namespace kekmonitors
