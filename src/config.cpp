@@ -44,7 +44,7 @@ Config::Config() {
     std::string configPath =
         configFolderPath.append(1, filesystem::path::preferred_separator);
     configPath.append("config.cfg");
-    utils::getFileIfExistsElseCreate(configPath, defaultConfig);
+    utils::getContentIfFileExistsElseCreate(configPath, defaultConfig);
     pt::read_ini(configPath, parser);
 }
 } // namespace kekmonitors

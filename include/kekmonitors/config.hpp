@@ -3,7 +3,6 @@
 //
 #pragma once
 #include <kekmonitors/core.hpp>
-#include <kekmonitors/utils.hpp>
 #include <boost/format.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 

@@ -16,7 +16,7 @@ std::string getUserHomeDir() {
 
 std::string getLocalKekDir() { return getUserHomeDir() + "/.kekmonitors"; }
 
-void KLog(const LogLevel &lvl, const std::string &log) {
+void KDevLog(const LogLevel &lvl, const std::string &log) {
     std::string lvlstr;
     std::basic_ostream<char> *out = &std::cout;
     switch (lvl) {
@@ -41,24 +41,24 @@ void KLog(const LogLevel &lvl, const std::string &log) {
     };
     *out << lvlstr << ": " << log << std::endl;
 }
-void KDebug(const std::string &log) { KLog(LogLevel::DEBUG, log); }
-void KInfo(const std::string &log) { KLog(LogLevel::INFO, log); }
-void KWarn(const std::string &log) { KLog(LogLevel::WARN, log); }
-void KErr(const std::string &log) { KLog(LogLevel::ERROR, log); }
-void KDebug(const std::string &functionName, const std::string &log) {
-    KLog(LogLevel::DEBUG, functionName + ": " + log);
+void KDevDbg(const std::string &log) { KDevLog(LogLevel::DEBUG, log); }
+void KDevInfo(const std::string &log) { KDevLog(LogLevel::INFO, log); }
+void KDevWarn(const std::string &log) { KDevLog(LogLevel::WARN, log); }
+void KDevErr(const std::string &log) { KDevLog(LogLevel::ERROR, log); }
+void KDevDbg(const std::string &functionName, const std::string &log) {
+    KDevLog(LogLevel::DEBUG, functionName + ": " + log);
 }
-void KInfo(const std::string &functionName, const std::string &log) {
-    KLog(LogLevel::INFO, functionName + ": " + log);
+void KDevInfo(const std::string &functionName, const std::string &log) {
+    KDevLog(LogLevel::INFO, functionName + ": " + log);
 }
-void KWarn(const std::string &functionName, const std::string &log) {
-    KLog(LogLevel::WARN, functionName + ": " + log);
+void KDevWarn(const std::string &functionName, const std::string &log) {
+    KDevLog(LogLevel::WARN, functionName + ": " + log);
 }
-void KErr(const std::string &functionName, const std::string &log) {
-    KLog(LogLevel::ERROR, functionName + ": " + log);
+void KDevErr(const std::string &functionName, const std::string &log) {
+    KDevLog(LogLevel::ERROR, functionName + ": " + log);
 }
 
-std::string getFileIfExistsElseCreate(const std::string &filepath,
+std::string getContentIfFileExistsElseCreate(const std::string &filepath,
                                       const std::string &content) {
     const std::string filepathUntilFile = filepath.substr(0, filepath.rfind(filesystem::path::preferred_separator));
     filesystem::create_directories(filepathUntilFile);
