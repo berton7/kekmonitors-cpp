@@ -54,8 +54,8 @@ class UnixServer {
                    std::shared_ptr<CmdConnection> &connection);
 
   public:
-    UnixServer(io_context &io, const Config &config);
-    UnixServer(io_context &io, const Config &config, CallbackMap callbacks);
+    UnixServer(io_context &io, const std::string &socketName, const Config &config);
+    UnixServer(io_context &io, const std::string &socketName, const Config &config, CallbackMap callbacks);
     ~UnixServer();
     void startAccepting();
     Response _handleCallback(const Cmd &cmd);

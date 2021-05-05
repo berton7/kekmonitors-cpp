@@ -16,7 +16,7 @@ class MonitorManager {
   public:
     MonitorManager() = delete;
     explicit MonitorManager(io_context &io)
-        : _unixServer(io, Config(),
+        : _unixServer(io, "MonitorManager", Config(),
                       {{COMMANDS::PING, &MonitorManager::onPing},
                        {COMMANDS::MM_STOP_MONITOR_MANAGER,
                         std::bind(&MonitorManager::shutdown, this)}}) {}

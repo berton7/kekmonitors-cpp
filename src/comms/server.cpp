@@ -2,6 +2,7 @@
 #include <kekmonitors/comms/msg.hpp>
 #include <kekmonitors/comms/server.hpp>
 #include <kekmonitors/utils.hpp>
+#include <boost/filesystem.hpp>
 
 namespace kekmonitors {
 IConnection::IConnection(io_context &io)
@@ -72,14 +73,27 @@ void CmdConnection::onWrite(const error_code &err, size_t read) {
         KWARN(err.message());
 };
 
-UnixServer::UnixServer(io_context &io, const Config &config)
-    : _io(io), _serverPath(config.parser.get<std::string>("GlobalConfig.socket_path") + "/MonitorManager"),
-      _acceptor(io, local::stream_protocol::endpoint(config.parser.get<std::string>("GlobalConfig.socket_path") + "/MonitorManager"), true) {
+std::string getServerPath(const Config &config, const std::string &socketName) {
+    std::string serverPath(
+        config.parser.get<std::string>("GlobalConfig.socket_path"));
+    boost::filesystem::create_directories(serverPath);
+    serverPath.append("/");
+    serverPath.append(socketName);
+    return serverPath;
+}
+
+UnixServer::UnixServer(io_context &io, const std::string &socketName, const Config &config)
+    : _io(io), _serverPath(getServerPath(config, socketName)),
+      _acceptor(io, getServerPath(config, socketName)) {
+    KINFO("Unix server initialized, accepting connections...");
     startAccepting();
 };
 
-UnixServer::UnixServer(io_context &io, const Config &config, CallbackMap callbacks): _io(io), _serverPath(config.parser.get<std::string>("GlobalConfig.socket_path") + "/MonitorManager"),
-                                                                                        _acceptor(io, local::stream_protocol::endpoint(config.parser.get<std::string>("GlobalConfig.socket_path") + "/MonitorManager"), true), _callbacks(std::move(callbacks)){
+UnixServer::UnixServer(io_context &io, const std::string &socketName, const Config &config,
+                       CallbackMap callbacks)
+    : _io(io), _serverPath(getServerPath(config, socketName)),
+      _acceptor(io, getServerPath(config, socketName)), _callbacks(std::move(callbacks)) {
+    KINFO("Unix server initialized, accepting connections...");
     startAccepting();
 }
 
@@ -106,7 +120,7 @@ void UnixServer::onConnect(const std::error_code &err,
 }
 
 Response UnixServer::_handleCallback(const Cmd &cmd) {
-    std::cout << "Received cmd: " << cmd.getCmd() << std::endl;
+    KINFO("Received cmd " + cmd.getCmd());
     try {
         return _callbacks.at(cmd.getCmd())(cmd);
     } catch (std::out_of_range &e) {
