@@ -14,7 +14,7 @@ void onRead(const error_code &err, size_t)
     if(err && err != error::eof)
         KERR(err.message());
     else
-        KDBG(err.message());
+        KDBG(buf);
 }
 
 void onWrite(const error_code &err, size_t, local::stream_protocol::socket *socket)
