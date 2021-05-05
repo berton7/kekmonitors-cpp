@@ -46,4 +46,6 @@ void KInfo(const std::string &functionName, const std::string &log);
 void KWarn(const std::string &functionName, const std::string &log);
 
 void KErr(const std::string &functionName, const std::string &log);
+
+std::string getFileIfExistsElseCreate(const std::string &filepath, const std::string &content = "");
 } // namespace kekmonitors::utils
