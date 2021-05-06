@@ -1,5 +1,6 @@
 #include <iostream>
 #include <kekmonitors/moman.hpp>
+#include <kekmonitors/utils.hpp>
 
 using namespace asio;
 using namespace std::placeholders;

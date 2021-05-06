@@ -5,7 +5,6 @@
 #include <functional>
 
 using namespace asio;
-using namespace std::placeholders;
 
 char buf[1024];
 
@@ -35,14 +34,20 @@ void onConnect(const error_code &err, local::stream_protocol::socket *socket)
     }
     kekmonitors::Cmd cmd;
     cmd.setCmd(kekmonitors::COMMANDS::MM_STOP_MONITOR_MANAGER);
-    async_write(*socket, buffer(cmd.toJson().dump()), std::bind(&onWrite, _1, _2, socket));
+    async_write(*socket, buffer(cmd.toJson().dump()), std::bind(&onWrite, std::placeholders::_1, std::placeholders::_2, socket));
 }
 
 int main()
 {
+    auto logger = kekmonitors::utils::getLogger(kekmonitors::Config(), "MonitorManager");
+    logger.debug("Debug");
+    logger.info("info");
+    logger.warn("warn");
+    logger.error("error");
+    return 0;
     io_context io;
     local::stream_protocol::socket socket(io);
-    socket.async_connect(local::stream_protocol::endpoint(kekmonitors::utils::getLocalKekDir() + "/sockets/MonitorManager"),std::bind(&onConnect, _1, &socket));
+    socket.async_connect(local::stream_protocol::endpoint(kekmonitors::utils::getLocalKekDir() + "/sockets/MonitorManager"),std::bind(&onConnect, std::placeholders::_1, &socket));
     io.run();
     socket.close();
 }

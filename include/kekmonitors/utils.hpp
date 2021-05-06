@@ -1,8 +1,10 @@
 #pragma once
 #include <kekmonitors/core.hpp>
+#include <kekmonitors/config.hpp>
 #include <pwd.h>
 #include <string>
 #include <iostream>
+#include <spdlog/logger.h>
 
 #ifdef KEKMONITORS_DEBUG
 #define KDBG(x) do{kekmonitors::utils::KDevDbg(__PRETTY_FUNCTION__, x);} while(0)
@@ -48,4 +50,6 @@ void KDevWarn(const std::string &functionName, const std::string &log);
 void KDevErr(const std::string &functionName, const std::string &log);
 
 std::string getContentIfFileExistsElseCreate(const std::string &filepath, const std::string &content = "");
+
+spdlog::logger getLogger(const Config &config, const std::string &name);
 } // namespace kekmonitors::utils
