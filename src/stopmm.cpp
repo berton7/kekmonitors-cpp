@@ -39,12 +39,6 @@ void onConnect(const error_code &err, local::stream_protocol::socket *socket)
 
 int main()
 {
-    auto logger = kekmonitors::utils::getLogger(kekmonitors::Config(), "MonitorManager");
-    logger.debug("Debug");
-    logger.info("info");
-    logger.warn("warn");
-    logger.error("error");
-    return 0;
     io_context io;
     local::stream_protocol::socket socket(io);
     socket.async_connect(local::stream_protocol::endpoint(kekmonitors::utils::getLocalKekDir() + "/sockets/MonitorManager"),std::bind(&onConnect, std::placeholders::_1, &socket));

@@ -1,39 +1,9 @@
-#include <iostream>
-#include <kekmonitors/moman.hpp>
-#include <kekmonitors/utils.hpp>
+#include <kekmonitors/monitormanager.hpp>
 
-using namespace asio;
-using namespace std::placeholders;
-
-namespace kekmonitors {
-class MonitorManager {
-  private:
-    UnixServer _unixServer;
-    static Response onPing(const Cmd &cmd) {
-        std::cout << "onPing callback!" << std::endl;
-        return Response::okResponse();
-    }
-
-  public:
-    MonitorManager() = delete;
-    explicit MonitorManager(io_context &io)
-        : _unixServer(io, "MonitorManager", Config(),
-                      {{COMMANDS::PING, &MonitorManager::onPing},
-                       {COMMANDS::MM_STOP_MONITOR_MANAGER,
-                        std::bind(&MonitorManager::shutdown, this)}}) {}
-
-    ~MonitorManager() = default;
-
-    Response shutdown() {
-        _unixServer.shutdown();
-        return Response::okResponse();
-    }
-};
-} // namespace kekmonitors
-
-int main() {
-    io_context io;
-    kekmonitors::MonitorManager m(io);
-    io.run();
-    return 0;
+int main()
+{
+	asio::io_context io;
+	kekmonitors::MonitorManager moman(io);
+	io.run();
+	return 0;
 }
