@@ -1,9 +1,9 @@
 #pragma once
 #include <asio.hpp>
 #include <chrono>
-#include <kekmonitors/core.hpp>
-#include <kekmonitors/comms/msg.hpp>
 #include <kekmonitors/config.hpp>
+#include <kekmonitors/core.hpp>
+#include <kekmonitors/msg.hpp>
 
 using namespace asio;
 

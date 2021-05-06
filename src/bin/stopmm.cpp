@@ -1,8 +1,8 @@
 #include <asio.hpp>
-#include <iostream>
-#include <kekmonitors/utils.hpp>
-#include <kekmonitors/comms/msg.hpp>
 #include <functional>
+#include <iostream>
+#include <kekmonitors/msg.hpp>
+#include <kekmonitors/utils.hpp>
 
 using namespace asio;
 

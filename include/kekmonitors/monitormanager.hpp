@@ -1,7 +1,7 @@
 #pragma once
 #include <kekmonitors/core.hpp>
-#include <kekmonitors/comms/msg.hpp>
-#include <kekmonitors/comms/server.hpp>
+#include <kekmonitors/msg.hpp>
+#include <kekmonitors/server.hpp>
 
 using namespace asio;
 using namespace std::placeholders;

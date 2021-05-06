@@ -1,8 +1,8 @@
-#include <iostream>
-#include <kekmonitors/comms/msg.hpp>
-#include <kekmonitors/comms/server.hpp>
-#include <kekmonitors/utils.hpp>
 #include <boost/filesystem.hpp>
+#include <iostream>
+#include <kekmonitors/msg.hpp>
+#include <kekmonitors/server.hpp>
+#include <kekmonitors/utils.hpp>
 
 namespace kekmonitors {
 IConnection::IConnection(io_context &io)

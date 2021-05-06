@@ -23,14 +23,16 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system filesystem)
 
-add_library(kekmonitors STATIC monitormanager.cpp comms/msg.cpp comms/server.cpp utils.cpp config.cpp)
+set(KEKMONITORS_SOURCE lib/monitormanager.cpp lib/msg.cpp lib/server.cpp lib/utils.cpp lib/config.cpp)
+
+add_library(kekmonitors STATIC ${KEKMONITORS_SOURCE})
 add_dependencies(kekmonitors spdlog)
 
-add_executable(moman moman.cpp)
+add_executable(moman bin/moman.cpp)
 target_link_libraries(moman pthread Boost::system Boost::filesystem kekmonitors)
 
-add_executable(stopmm stopmm.cpp)
+add_executable(stopmm bin/stopmm.cpp)
 target_link_libraries(stopmm pthread Boost::system Boost::filesystem kekmonitors)
 
-add_executable(cli moman_cli.cpp)
+add_executable(cli bin/moman_cli.cpp)
 target_link_libraries(cli pthread Boost::system Boost::filesystem kekmonitors)

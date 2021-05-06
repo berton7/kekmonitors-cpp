@@ -4,6 +4,6 @@
 #pragma once
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/moman.hpp>
+#include <kekmonitors/msg.hpp>
+#include <kekmonitors/server.hpp>
 #include <kekmonitors/utils.hpp>
-#include <kekmonitors/comms/msg.hpp>
-#include <kekmonitors/comms/server.hpp>
