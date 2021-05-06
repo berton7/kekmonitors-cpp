@@ -14,6 +14,7 @@ ExternalProject_Add(spdlog
     -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
     -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
     -DCMAKE_INSTALL_PREFIX=${STAGING_DIR}
+    -DSPDLOG_MASTER_PROJECT=OFF
     -DSPDLOG_BUILD_SHARED=OFF
 	INSTALL_COMMAND ""
 )
@@ -24,15 +25,16 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system filesystem)
 
 set(KEKMONITORS_SOURCE lib/monitormanager.cpp lib/msg.cpp lib/server.cpp lib/utils.cpp lib/config.cpp)
+set(KEKMONITORS_LIB_DEPS pthread Boost::system Boost::filesystem kekmonitors)
 
-add_library(kekmonitors STATIC ${KEKMONITORS_SOURCE})
+add_library(kekmonitors ${KEKMONITORS_SOURCE})
 add_dependencies(kekmonitors spdlog)
 
 add_executable(moman bin/moman.cpp)
-target_link_libraries(moman pthread Boost::system Boost::filesystem kekmonitors)
+target_link_libraries(moman ${KEKMONITORS_LIB_DEPS})
 
 add_executable(stopmm bin/stopmm.cpp)
-target_link_libraries(stopmm pthread Boost::system Boost::filesystem kekmonitors)
+target_link_libraries(stopmm ${KEKMONITORS_LIB_DEPS})
 
 add_executable(cli bin/moman_cli.cpp)
-target_link_libraries(cli pthread Boost::system Boost::filesystem kekmonitors)
+target_link_libraries(cli pthread ${KEKMONITORS_LIB_DEPS})

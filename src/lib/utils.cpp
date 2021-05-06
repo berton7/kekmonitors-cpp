@@ -53,6 +53,13 @@ std::string getContentIfFileExistsElseCreate(const std::string &filepath,
     }
 }
 
+void initDebugLogger()
+{
+    auto dbgLog = spdlog::stdout_color_st("KDBG");
+    dbgLog->set_pattern("[%^%l%$] %v");
+    dbgLog->set_level(spdlog::level::debug);
+}
+
 spdlog::logger getLogger(const Config &config, const std::string &name)
 {
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();

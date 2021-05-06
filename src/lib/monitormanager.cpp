@@ -21,6 +21,7 @@ MonitorManager::MonitorManager(io_context &io)
     }
 
     Response MonitorManager::shutdown() {
+        KDBGD("Received shutdown");
         _unixServer.shutdown();
         return Response::okResponse();
     }

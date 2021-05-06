@@ -1,4 +1,5 @@
 #include <boost/algorithm/string.hpp>
+#include <boost/format.hpp>
 #include <boost/filesystem.hpp>
 #include <kekmonitors/config.hpp>
 #include <kekmonitors/utils.hpp>
