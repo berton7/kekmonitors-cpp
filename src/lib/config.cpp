@@ -39,13 +39,13 @@ const std::string Config::defaultConfig = boost::str(
     utils::getLocalKekDir() % utils::getLocalKekDir());
 
 Config::Config() {
-  std::string configFolderPath =
-      join((const std::string[]){utils::getLocalKekDir(), "config"},
-           std::string(1, filesystem::path::preferred_separator));
-  std::string configPath =
-      configFolderPath.append(1, filesystem::path::preferred_separator);
-  configPath.append("config.cfg");
-  utils::getContentIfFileExistsElseCreate(configPath, defaultConfig);
-  pt::read_ini(configPath, parser);
+    std::string configFolderPath =
+        join((const std::string[]){utils::getLocalKekDir(), "config"},
+             std::string(1, filesystem::path::preferred_separator));
+    std::string configPath =
+        configFolderPath.append(1, filesystem::path::preferred_separator);
+    configPath.append("config.cfg");
+    utils::getContentIfFileExistsElseCreate(configPath, defaultConfig);
+    pt::read_ini(configPath, parser);
 }
 } // namespace kekmonitors

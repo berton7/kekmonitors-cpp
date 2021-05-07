@@ -16,13 +16,13 @@ MonitorManager::MonitorManager(io_context &io)
 MonitorManager::~MonitorManager() = default;
 
 Response MonitorManager::onPing(const Cmd &cmd) {
-  std::cout << "onPing callback!" << std::endl;
-  return Response::okResponse();
+    std::cout << "onPing callback!" << std::endl;
+    return Response::okResponse();
 }
 
 Response MonitorManager::shutdown() {
-  KDBGD("Received shutdown");
-  _unixServer.shutdown();
-  return Response::okResponse();
+    KDBGD("Received shutdown");
+    _unixServer.shutdown();
+    return Response::okResponse();
 }
 } // namespace kekmonitors

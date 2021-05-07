@@ -7,11 +7,11 @@
 
 namespace kekmonitors {
 class Config {
-public:
-  const static std::string defaultConfig;
+  public:
+    const static std::string defaultConfig;
 
-  boost::property_tree::ptree parser;
+    boost::property_tree::ptree parser;
 
-  Config();
+    Config();
 };
 } // namespace kekmonitors

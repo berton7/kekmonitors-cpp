@@ -8,14 +8,14 @@ using namespace std::placeholders;
 
 namespace kekmonitors {
 class MonitorManager {
-private:
-  UnixServer _unixServer;
-  static Response onPing(const Cmd &cmd);
+  private:
+    UnixServer _unixServer;
+    static Response onPing(const Cmd &cmd);
 
-public:
-  MonitorManager() = delete;
-  explicit MonitorManager(io_context &io);
-  ~MonitorManager();
-  Response shutdown();
+  public:
+    MonitorManager() = delete;
+    explicit MonitorManager(io_context &io);
+    ~MonitorManager();
+    Response shutdown();
 };
 } // namespace kekmonitors
