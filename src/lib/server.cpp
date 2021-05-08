@@ -134,11 +134,12 @@ void UnixServer::onConnect(const std::error_code &err,
 }
 
 Response UnixServer::_handleCallback(const Cmd &cmd) {
-    KINFOD("Received cmd " + std::to_string((cmd.getCmd())));
+    auto command = static_cast<uint32_t>(cmd.getCmd());
+    KINFOD("Received cmd " + std::to_string(command));
     try {
         return _callbacks.at(cmd.getCmd())(cmd);
     } catch (std::out_of_range &e) {
-        KWARND("Cmd " + std::to_string(cmd.getCmd()) + " was not registered");
+        KWARND("Cmd " + std::to_string(command) + " was not registered");
         Response resp;
         resp.setError(ERRORS::UNRECOGNIZED_COMMAND);
         return resp;

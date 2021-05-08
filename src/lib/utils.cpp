@@ -2,6 +2,7 @@
 // Created by berton on 4/28/21.
 //
 #include <boost/filesystem.hpp>
+#include <kekmonitors/msg.hpp>
 #include <kekmonitors/utils.hpp>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -12,6 +13,7 @@
 using namespace boost;
 
 namespace kekmonitors::utils {
+
 std::string getUserHomeDir() {
     return getenv("HOME") ?: getpwuid(getuid())->pw_dir;
 }
@@ -57,7 +59,7 @@ void initDebugLogger() {
 #endif
 }
 
-spdlog::logger getLogger(const std::shared_ptr<Config> config,
+spdlog::logger getLogger(const std::shared_ptr<Config> &config,
                          const std::string &name) {
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     console_sink->set_level(spdlog::level::warn);

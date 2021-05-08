@@ -7,7 +7,7 @@ using json = nlohmann::json;
 
 namespace kekmonitors {
 
-enum COMMANDS : uint32_t {
+enum class COMMANDS : uint32_t {
     PING = 1,
     STOP,
     SET_SHOES,
@@ -60,7 +60,7 @@ enum COMMANDS : uint32_t {
     MM_GET_SCRAPER_SHOES,
 };
 
-enum ERRORS : uint32_t {
+enum class ERRORS : uint32_t {
     OK = 0,
 
     SOCKET_DOESNT_EXIST,
