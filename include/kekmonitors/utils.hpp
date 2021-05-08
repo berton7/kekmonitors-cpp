@@ -41,5 +41,5 @@ std::string getContentIfFileExistsElseCreate(const std::string &filepath,
 
 void initDebugLogger();
 
-spdlog::logger getLogger(const Config &config, const std::string &name);
+spdlog::logger getLogger(const std::shared_ptr<Config> config, const std::string &name);
 } // namespace kekmonitors::utils

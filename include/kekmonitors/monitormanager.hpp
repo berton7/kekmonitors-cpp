@@ -9,12 +9,13 @@ using namespace std::placeholders;
 namespace kekmonitors {
 class MonitorManager {
   private:
-    UnixServer _unixServer;
+    std::unique_ptr<UnixServer> _unixServer=nullptr;
+    std::shared_ptr<Config> _config=nullptr;
     static Response onPing(const Cmd &cmd);
 
   public:
     MonitorManager() = delete;
-    explicit MonitorManager(io_context &io);
+    MonitorManager(io_context &io, std::shared_ptr<Config> config = nullptr);
     ~MonitorManager();
     Response shutdown();
 };

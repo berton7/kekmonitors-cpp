@@ -42,9 +42,10 @@ class CmdConnection : public IConnection,
 
 class UnixServer {
   private:
-    local::stream_protocol::acceptor _acceptor;
-    const std::string _serverPath;
+    std::unique_ptr<local::stream_protocol::acceptor> _acceptor;
+    std::string _serverPath;
     io_service &_io;
+    std::shared_ptr<Config> _config = nullptr;
 
   public:
     CallbackMap _callbacks;
@@ -55,9 +56,9 @@ class UnixServer {
 
   public:
     UnixServer(io_context &io, const std::string &socketName,
-               const Config &config);
+               std::shared_ptr<Config> config);
     UnixServer(io_context &io, const std::string &socketName,
-               const Config &config, CallbackMap callbacks);
+               std::shared_ptr<Config> config, CallbackMap callbacks);
     ~UnixServer();
     void startAccepting();
     Response _handleCallback(const Cmd &cmd);

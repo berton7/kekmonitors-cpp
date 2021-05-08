@@ -76,9 +76,10 @@ void CmdConnection::onWrite(const error_code &err, size_t read) {
         KWARND(err.message());
 };
 
-std::string getServerPath(const Config &config, const std::string &socketName) {
+std::string getServerPath(const std::shared_ptr<Config> config,
+                          const std::string &socketName) {
     std::string serverPath(
-        config.parser.get<std::string>("GlobalConfig.socket_path"));
+        config->parser.get<std::string>("GlobalConfig.socket_path"));
     boost::filesystem::create_directories(serverPath);
     serverPath += boost::filesystem::path::separator;
     serverPath.append(socketName);
@@ -86,18 +87,25 @@ std::string getServerPath(const Config &config, const std::string &socketName) {
 }
 
 UnixServer::UnixServer(io_context &io, const std::string &socketName,
-                       const Config &config)
-    : _acceptor(io, getServerPath(config, socketName)),
-      _serverPath(getServerPath(config, socketName)), _io(io) {
+                       std::shared_ptr<Config> config)
+    : _io(io), _config(config) {
+    if (config == nullptr)
+        throw std::invalid_argument("Config cannot be nullptr");
+    _serverPath = getServerPath(config, socketName);
+    _acceptor =
+        std::make_unique<local::stream_protocol::acceptor>(io, _serverPath);
     KINFOD("Unix server initialized, accepting connections...");
     startAccepting();
 };
 
 UnixServer::UnixServer(io_context &io, const std::string &socketName,
-                       const Config &config, CallbackMap callbacks)
-    : _acceptor(io, getServerPath(config, socketName)),
-      _serverPath(getServerPath(config, socketName)), _io(io),
-      _callbacks(std::move(callbacks)) {
+                       std::shared_ptr<Config> config, CallbackMap callbacks)
+    : _io(io), _config(config), _callbacks(std::move(callbacks)) {
+    if (config == nullptr)
+        throw std::invalid_argument("Config cannot be nullptr");
+    _serverPath = getServerPath(config, socketName);
+    _acceptor =
+        std::make_unique<local::stream_protocol::acceptor>(io, _serverPath);
     KINFOD("Unix server initialized, accepting connections...");
     startAccepting();
 }
@@ -111,9 +119,9 @@ void UnixServer::startAccepting() {
     auto connection =
         CmdConnection::create(_io, std::bind(&UnixServer::_handleCallback, this,
                                              std::placeholders::_1));
-    _acceptor.async_accept(connection->getSocket(),
-                           std::bind(&UnixServer::onConnect, this,
-                                     std::placeholders::_1, connection));
+    _acceptor->async_accept(connection->getSocket(),
+                            std::bind(&UnixServer::onConnect, this,
+                                      std::placeholders::_1, connection));
 };
 
 void UnixServer::onConnect(const std::error_code &err,
@@ -130,11 +138,12 @@ Response UnixServer::_handleCallback(const Cmd &cmd) {
     try {
         return _callbacks.at(cmd.getCmd())(cmd);
     } catch (std::out_of_range &e) {
+        KWARND("Cmd " + std::to_string(cmd.getCmd()) + " was not registered");
         Response resp;
         resp.setError(ERRORS::UNRECOGNIZED_COMMAND);
         return resp;
     }
 }
 
-void UnixServer::shutdown() { _acceptor.close(); }
+void UnixServer::shutdown() { _acceptor->close(); }
 } // namespace kekmonitors
