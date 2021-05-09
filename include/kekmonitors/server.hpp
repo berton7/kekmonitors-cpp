@@ -43,11 +43,11 @@ class CmdConnection : public IConnection,
 
 class UnixServer {
   private:
-    std::unique_ptr<local::stream_protocol::acceptor> _acceptor;
+    std::unique_ptr<local::stream_protocol::acceptor> _acceptor = nullptr;
     std::string _serverPath;
     io_service &_io;
     std::shared_ptr<Config> _config = nullptr;
-    std::unique_ptr<spdlog::logger> _logger;
+    std::unique_ptr<spdlog::logger> _logger = nullptr;
 
   public:
     CallbackMap _callbacks;

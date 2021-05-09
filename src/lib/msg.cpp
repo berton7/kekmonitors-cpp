@@ -29,6 +29,12 @@ json Cmd::toJson() {
     return j;
 };
 
+bool Cmd::fromString(const std::string &str) {
+    return fromJson(json::parse(str));
+}
+
+std::string Cmd::toString() { return toJson().dump(); }
+
 COMMANDS Cmd::getCmd() const { return _cmd; }
 void Cmd::setCmd(COMMANDS cmd) { _cmd = cmd; }
 const json &Cmd::getPayload() const { return _payload; }
@@ -79,5 +85,9 @@ Response Response::badResponse() {
     Response resp;
     resp.setError(ERRORS::OTHER_ERROR);
     return resp;
+}
+std::string Response::toString() { return toJson().dump(); }
+bool Response::fromString(const std::string &str) {
+    return fromJson(json::parse(str));
 }
 }; // namespace kekmonitors

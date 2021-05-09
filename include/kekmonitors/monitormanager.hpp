@@ -3,9 +3,6 @@
 #include <kekmonitors/msg.hpp>
 #include <kekmonitors/server.hpp>
 
-using namespace asio;
-using namespace std::placeholders;
-
 namespace kekmonitors {
 class MonitorManager {
   private:
@@ -16,7 +13,7 @@ class MonitorManager {
 
   public:
     MonitorManager() = delete;
-    MonitorManager(io_context &io, std::shared_ptr<Config> config = nullptr);
+    explicit MonitorManager(asio::io_context &io, std::shared_ptr<Config> config = nullptr);
     ~MonitorManager();
     Response shutdown();
 };

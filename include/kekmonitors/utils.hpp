@@ -1,5 +1,4 @@
 #pragma once
-#include <iostream>
 #include <kekmonitors/config.hpp>
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/msg.hpp>

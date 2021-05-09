@@ -1,6 +1,7 @@
 #include <asio.hpp>
 #include <iostream>
 #include <kekmonitors/msg.hpp>
+#include <kekmonitors/utils.hpp>
 
 using namespace asio;
 
@@ -27,9 +28,20 @@ int main(int argc, char *argv[]) {
         "/home/berton/.kekmonitors/sockets/MonitorManager"));
     sock.send(buffer(cmd.toJson().dump()));
     sock.shutdown(local::stream_protocol::socket::shutdown_send);
-    char buf[1024] = {};
+    std::vector<char>buf(1024);
     sock.receive(buffer(buf));
-    std::cout << buf << std::endl;
     sock.close();
+    auto logger = kekmonitors::utils::getLogger("MomanCli");
+    kekmonitors::Response resp;
+    resp.fromString(std::string(buf.begin(), buf.end()));
+    if (resp.getError()!=kekmonitors::ERRORS::OK) {
+        logger->error(kekmonitors::utils::errorsToString[resp.getError()]);
+        if (!resp.getInfo().empty())
+        {
+            logger->info(resp.getInfo());
+        }
+    }
+    else
+        logger->info(kekmonitors::utils::errorsToString[resp.getError()]);
     return 0;
 }

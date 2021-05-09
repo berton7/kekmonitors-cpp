@@ -92,6 +92,8 @@ class IMessage {
   public:
     virtual bool fromJson(const json &obj) = 0;
     virtual json toJson() = 0;
+    virtual bool fromString(const std::string &str) = 0;
+    virtual std::string toString() = 0;
 };
 
 class Cmd : public IMessage {
@@ -104,8 +106,9 @@ class Cmd : public IMessage {
     ~Cmd();
 
     bool fromJson(const json &obj) override;
-
     json toJson() override;
+    bool fromString(const std::string &str) override;
+    std::string toString() override;
 
     COMMANDS getCmd() const;
     void setCmd(COMMANDS cmd);
@@ -125,6 +128,9 @@ class Response : public IMessage {
 
     bool fromJson(const json &obj) override;
     json toJson() override;
+    bool fromString(const std::string &str) override;
+    std::string toString() override;
+
     ERRORS getError() const;
     void setError(ERRORS error);
     const json &getPayload() const;

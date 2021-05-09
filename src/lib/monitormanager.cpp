@@ -1,4 +1,3 @@
-#include <iostream>
 #include <kekmonitors/monitormanager.hpp>
 #include <kekmonitors/utils.hpp>
 
@@ -14,7 +13,7 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
     _logger = utils::getLogger("MonitorManager");
     _unixServer = std::make_unique<UnixServer>(
         io, "MonitorManager", _config,
-        CallbackMap({{COMMANDS::PING, std::bind(&MonitorManager::onPing, this, _1)},
+        CallbackMap({{COMMANDS::PING, std::bind(&MonitorManager::onPing, this, std::placeholders::_1)},
                      {COMMANDS::MM_STOP_MONITOR_MANAGER,
                       std::bind(&MonitorManager::shutdown, this)}}));
 }
