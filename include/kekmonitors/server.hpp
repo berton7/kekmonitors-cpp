@@ -1,6 +1,7 @@
 #pragma once
 #include <asio.hpp>
 #include <chrono>
+#include <spdlog/logger.h>
 #include <kekmonitors/config.hpp>
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/msg.hpp>
@@ -46,6 +47,7 @@ class UnixServer {
     std::string _serverPath;
     io_service &_io;
     std::shared_ptr<Config> _config = nullptr;
+    std::unique_ptr<spdlog::logger> _logger;
 
   public:
     CallbackMap _callbacks;

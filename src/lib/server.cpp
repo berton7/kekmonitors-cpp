@@ -45,7 +45,7 @@ void CmdConnection::onRead(const std::error_code &err, size_t read) {
                        std::string(_buffer.data()));
             }
         } catch (std::exception &e) {
-            KINFOD(e.what());
+            KWARND(e.what());
         }
     } else if (err && err != asio::error::operation_aborted) {
         KWARND(err.message());
@@ -91,10 +91,11 @@ UnixServer::UnixServer(io_context &io, const std::string &socketName,
     : _io(io), _config(config) {
     if (config == nullptr)
         throw std::invalid_argument("Config cannot be nullptr");
+    _logger = utils::getLogger("UnixServer");
     _serverPath = getServerPath(config, socketName);
     _acceptor =
         std::make_unique<local::stream_protocol::acceptor>(io, _serverPath);
-    KINFOD("Unix server initialized, accepting connections...");
+    _logger->info("Unix server initialized, accepting connections...");
     startAccepting();
 };
 
@@ -103,15 +104,16 @@ UnixServer::UnixServer(io_context &io, const std::string &socketName,
     : _io(io), _config(config), _callbacks(std::move(callbacks)) {
     if (config == nullptr)
         throw std::invalid_argument("Config cannot be nullptr");
+    _logger = utils::getLogger("UnixServer");
     _serverPath = getServerPath(config, socketName);
     _acceptor =
         std::make_unique<local::stream_protocol::acceptor>(io, _serverPath);
-    KINFOD("Unix server initialized, accepting connections...");
+    _logger->info("Unix server initialized, accepting connections...");
     startAccepting();
 }
 
 UnixServer::~UnixServer() {
-    KINFOD("Closing server");
+    _logger->info("Closing server");
     ::unlink(_serverPath.c_str());
 };
 
@@ -135,11 +137,11 @@ void UnixServer::onConnect(const std::error_code &err,
 
 Response UnixServer::_handleCallback(const Cmd &cmd) {
     auto command = static_cast<uint32_t>(cmd.getCmd());
-    KINFOD("Received cmd " + std::to_string(command));
+    _logger->info("Received cmd " + std::to_string(command));
     try {
         return _callbacks.at(cmd.getCmd())(cmd);
     } catch (std::out_of_range &e) {
-        KWARND("Cmd " + std::to_string(command) + " was not registered");
+        _logger->warn("Cmd " + std::to_string(command) + " was not registered");
         Response resp;
         resp.setError(ERRORS::UNRECOGNIZED_COMMAND);
         return resp;

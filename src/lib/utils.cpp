@@ -59,20 +59,16 @@ void initDebugLogger() {
 #endif
 }
 
-spdlog::logger getLogger(const std::shared_ptr<Config> &config,
-                         const std::string &name) {
+std::unique_ptr<spdlog::logger> getLogger(const std::string &name) {
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    console_sink->set_level(spdlog::level::warn);
+    console_sink->set_level(spdlog::level::debug);
 
-    auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
-        "logs/multisink.txt", true);
-    file_sink->set_level(spdlog::level::trace);
+    //auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
+    //    "logs/multisink.txt", true);
+    //file_sink->set_level(spdlog::level::trace);
 
-    spdlog::logger logger(name, {console_sink, file_sink});
-    logger.set_level(spdlog::level::debug);
-    logger.warn("this should appear in both console and file");
-    logger.info(
-        "this message should not appear in the console, only in the file");
+    std::unique_ptr<spdlog::logger> logger = std::make_unique<spdlog::logger>(name, std::initializer_list<spdlog::sink_ptr>{console_sink/*, file_sink*/});
+    logger->set_level(spdlog::level::debug);
     return logger;
 }
 } // namespace kekmonitors::utils

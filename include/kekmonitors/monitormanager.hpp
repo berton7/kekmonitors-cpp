@@ -11,7 +11,8 @@ class MonitorManager {
   private:
     std::unique_ptr<UnixServer> _unixServer=nullptr;
     std::shared_ptr<Config> _config=nullptr;
-    static Response onPing(const Cmd &cmd);
+    std::unique_ptr<spdlog::logger> _logger = nullptr;
+    Response onPing(const Cmd &cmd);
 
   public:
     MonitorManager() = delete;
