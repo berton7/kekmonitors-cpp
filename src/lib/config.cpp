@@ -39,6 +39,7 @@ const std::string Config::defaultConfig = boost::str(
     utils::getLocalKekDir() % utils::getLocalKekDir());
 
 Config::Config() {
+    KDBG("Config constructor");
     std::string configFolderPath =
         join((const std::string[]){utils::getLocalKekDir(), "config"},
              std::string(1, filesystem::path::preferred_separator));

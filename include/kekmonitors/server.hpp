@@ -1,10 +1,10 @@
 #pragma once
 #include <asio.hpp>
 #include <chrono>
-#include <spdlog/logger.h>
 #include <kekmonitors/config.hpp>
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/msg.hpp>
+#include <spdlog/logger.h>
 
 using namespace asio;
 
@@ -58,9 +58,9 @@ class UnixServer {
 
   public:
     UnixServer(io_context &io, const std::string &socketName,
-               std::shared_ptr<Config> config);
+               std::shared_ptr<Config> config = nullptr);
     UnixServer(io_context &io, const std::string &socketName,
-               std::shared_ptr<Config> config, CallbackMap callbacks);
+               CallbackMap callbacks, std::shared_ptr<Config> config = nullptr);
     ~UnixServer();
     void startAccepting();
     Response _handleCallback(const Cmd &cmd);

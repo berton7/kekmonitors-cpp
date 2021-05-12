@@ -4,7 +4,6 @@
 #include <boost/filesystem.hpp>
 #include <kekmonitors/msg.hpp>
 #include <kekmonitors/utils.hpp>
-#include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 #include <sstream>
@@ -13,6 +12,10 @@
 using namespace boost;
 
 namespace kekmonitors::utils {
+
+namespace {
+auto _ = initDebugLogger();
+}
 
 std::string getUserHomeDir() {
     return getenv("HOME") ?: getpwuid(getuid())->pw_dir;
@@ -29,9 +32,10 @@ std::string getContentIfFileExistsElseCreate(const std::string &filepath,
     if (filesystem::is_regular_file(filepath)) {
         file.open(filepath, std::ios::in);
         if (!file.is_open()) {
-            KERRD("Failed to open config file.");
+            KDBG("Failed to open config file.");
             return "";
         }
+        KDBG("Config file exists, returning content");
         std::stringstream ss;
         while (!file.eof()) {
             std::string line;
@@ -42,32 +46,38 @@ std::string getContentIfFileExistsElseCreate(const std::string &filepath,
     } else {
         file.open(filepath, std::ios::out);
         if (!file.is_open()) {
-            KERRD("Failed to open config file.");
+            KDBG("Failed to open config file.");
             return "";
         }
+        KDBG("Config file doesn't exist, creating and returning content");
         file << content;
         file.close();
         return content;
     }
 }
 
-void initDebugLogger() {
+std::shared_ptr<spdlog::logger> initDebugLogger() {
 #ifdef KEKMONITORS_DEBUG
     auto dbgLog = spdlog::stdout_color_st("KDBG");
-    dbgLog->set_pattern("[DBG] [%^%l%$] %v");
+    auto formatter = std::make_unique<spdlog::pattern_formatter>();
+    dbgLog->set_pattern("%v");
     dbgLog->set_level(spdlog::level::debug);
+    return dbgLog;
 #endif
 }
 
 std::unique_ptr<spdlog::logger> getLogger(const std::string &name) {
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     console_sink->set_level(spdlog::level::debug);
+    console_sink->set_pattern("[%^%n%$] %v");
 
-    //auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
-    //    "logs/multisink.txt", true);
-    //file_sink->set_level(spdlog::level::trace);
+    // auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
+    //     "logs/multisink.txt", true);
+    // file_sink->set_level(spdlog::level::trace);
 
-    std::unique_ptr<spdlog::logger> logger = std::make_unique<spdlog::logger>(name, std::initializer_list<spdlog::sink_ptr>{console_sink/*, file_sink*/});
+    std::unique_ptr<spdlog::logger> logger = std::make_unique<spdlog::logger>(
+        name,
+        std::initializer_list<spdlog::sink_ptr>{console_sink /*, file_sink*/});
     logger->set_level(spdlog::level::debug);
     return logger;
 }

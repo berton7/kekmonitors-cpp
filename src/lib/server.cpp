@@ -8,7 +8,7 @@ namespace kekmonitors {
 IConnection::IConnection(io_context &io)
     : _buffer(1024), _socket(io), _timeout(io){};
 IConnection::~IConnection() {
-    KDBGD("Destroying connection");
+    KDBG("Destroying connection");
     if (_socket.is_open())
         _socket.close();
     _timeout.cancel();
@@ -17,11 +17,11 @@ IConnection::~IConnection() {
 void IConnection::onTimeout(const std::error_code &err) {
     if (err) {
         if (err != error::operation_aborted) {
-            KWARND(err.message());
+            KDBG(err.message());
             return;
         }
     } else {
-        KDBGD("Connection timed out");
+        KDBG("Connection timed out");
         _socket.close();
     }
 }
@@ -41,20 +41,20 @@ void CmdConnection::onRead(const std::error_code &err, size_t read) {
                                       shared_from_this(), std::placeholders::_1,
                                       std::placeholders::_2));
             } else {
-                KINFOD("Received connection but couldn't parse from json: " +
-                       std::string(_buffer.data()));
+                KDBG("Received connection but couldn't parse from json: " +
+                      std::string(_buffer.data()));
             }
         } catch (std::exception &e) {
-            KWARND(e.what());
+            KDBG(e.what());
         }
     } else if (err && err != asio::error::operation_aborted) {
-        KWARND(err.message());
+        KDBG(err.message());
     }
 };
 
 CmdConnection::CmdConnection(io_context &io, const CmdCallback &&cb)
     : IConnection(io), _cb(cb) {
-    KDBGD("Allocating new connection");
+    KDBG("Allocating new connection");
 }
 
 std::shared_ptr<CmdConnection> CmdConnection::create(io_context &io,
@@ -73,13 +73,13 @@ void CmdConnection::asyncRead() {
 }
 void CmdConnection::onWrite(const error_code &err, size_t read) {
     if (err)
-        KWARND(err.message());
+        KDBG(err.message());
 };
 
-std::string getServerPath(const std::shared_ptr<Config> config,
+std::string getServerPath(const std::shared_ptr<Config> &config,
                           const std::string &socketName) {
-    std::string serverPath(
-        config->parser.get<std::string>("GlobalConfig.socket_path"));
+    std::string serverPath{
+        config->parser.get<std::string>("GlobalConfig.socket_path")};
     boost::filesystem::create_directories(serverPath);
     serverPath += boost::filesystem::path::separator;
     serverPath.append(socketName);
@@ -88,9 +88,9 @@ std::string getServerPath(const std::shared_ptr<Config> config,
 
 UnixServer::UnixServer(io_context &io, const std::string &socketName,
                        std::shared_ptr<Config> config)
-    : _io(io), _config(config) {
+    : _io(io), _config(std::move(config)) {
     if (config == nullptr)
-        throw std::invalid_argument("Config cannot be nullptr");
+        _config = std::make_shared<Config>();
     _logger = utils::getLogger("UnixServer");
     _serverPath = getServerPath(config, socketName);
     _acceptor =
@@ -100,12 +100,12 @@ UnixServer::UnixServer(io_context &io, const std::string &socketName,
 };
 
 UnixServer::UnixServer(io_context &io, const std::string &socketName,
-                       std::shared_ptr<Config> config, CallbackMap callbacks)
-    : _io(io), _config(config), _callbacks(std::move(callbacks)) {
-    if (config == nullptr)
-        throw std::invalid_argument("Config cannot be nullptr");
+                       CallbackMap callbacks, std::shared_ptr<Config> config)
+    : _io(io), _config(std::move(config)), _callbacks(std::move(callbacks)) {
+    if (!_config)
+        _config = std::make_shared<Config>();
     _logger = utils::getLogger("UnixServer");
-    _serverPath = getServerPath(config, socketName);
+    _serverPath = getServerPath(_config, socketName);
     _acceptor =
         std::make_unique<local::stream_protocol::acceptor>(io, _serverPath);
     _logger->info("Unix server initialized, accepting connections...");
@@ -132,7 +132,7 @@ void UnixServer::onConnect(const std::error_code &err,
         connection->asyncRead();
         startAccepting();
     } else if (err != asio::error::operation_aborted)
-        KWARND(err.message());
+        KDBG(err.message());
 }
 
 Response UnixServer::_handleCallback(const Cmd &cmd) {

@@ -7,27 +7,12 @@
 #include <string>
 
 #ifdef KEKMONITORS_DEBUG
-#define KDBGD(x)                                                               \
+#define KDBG(x)                                                               \
     do {                                                                       \
         spdlog::get("KDBG")->debug("[{}] {}", __FUNCTION__, x);                \
     } while (0)
-#define KINFOD(x)                                                              \
-    do {                                                                       \
-        spdlog::get("KDBG")->info("[{}] {}", __FUNCTION__, x);                 \
-    } while (0)
-#define KWARND(x)                                                              \
-    do {                                                                       \
-        spdlog::get("KDBG")->warn("[{}] {}", __FUNCTION__, x);                 \
-    } while (0)
-#define KERRD(x)                                                               \
-    do {                                                                       \
-        spdlog::get("KDBG")->error("[{}] {}", __FUNCTION__, x);                \
-    } while (0)
 #else
-#define KDBGD(x)
-#define KINFOD(x)
-#define KWARND(x)
-#define KERRD(x)
+#define KDBG(x)
 #endif
 
 namespace kekmonitors::utils {
@@ -59,21 +44,30 @@ static std::map<kekmonitors::COMMANDS, std::string> commandToString{
     {kekmonitors::COMMANDS::MM_STOP_MONITOR_MANAGER, "MM_STOP_MONITOR_MANAGER"},
     {kekmonitors::COMMANDS::MM_GET_MONITOR_STATUS, "MM_GET_MONITOR_STATUS"},
     {kekmonitors::COMMANDS::MM_GET_SCRAPER_STATUS, "MM_GET_SCRAPER_STATUS"},
-    {kekmonitors::COMMANDS::MM_GET_MONITOR_SCRAPER_STATUS, "MM_GET_MONITOR_SCRAPER_STATUS"},
+    {kekmonitors::COMMANDS::MM_GET_MONITOR_SCRAPER_STATUS,
+     "MM_GET_MONITOR_SCRAPER_STATUS"},
     {kekmonitors::COMMANDS::MM_SET_MONITOR_CONFIG, "MM_SET_MONITOR_CONFIG"},
     {kekmonitors::COMMANDS::MM_GET_MONITOR_CONFIG, "MM_GET_MONITOR_CONFIG"},
-    {kekmonitors::COMMANDS::MM_SET_MONITOR_WHITELIST, "MM_SET_MONITOR_WHITELIST"},
-    {kekmonitors::COMMANDS::MM_GET_MONITOR_WHITELIST, "MM_GET_MONITOR_WHITELIST"},
-    {kekmonitors::COMMANDS::MM_SET_MONITOR_BLACKLIST, "MM_SET_MONITOR_BLACKLIST"},
-    {kekmonitors::COMMANDS::MM_GET_MONITOR_BLACKLIST, "MM_GET_MONITOR_BLACKLIST"},
+    {kekmonitors::COMMANDS::MM_SET_MONITOR_WHITELIST,
+     "MM_SET_MONITOR_WHITELIST"},
+    {kekmonitors::COMMANDS::MM_GET_MONITOR_WHITELIST,
+     "MM_GET_MONITOR_WHITELIST"},
+    {kekmonitors::COMMANDS::MM_SET_MONITOR_BLACKLIST,
+     "MM_SET_MONITOR_BLACKLIST"},
+    {kekmonitors::COMMANDS::MM_GET_MONITOR_BLACKLIST,
+     "MM_GET_MONITOR_BLACKLIST"},
     {kekmonitors::COMMANDS::MM_SET_MONITOR_WEBHOOKS, "MM_SET_MONITOR_WEBHOOKS"},
     {kekmonitors::COMMANDS::MM_GET_MONITOR_WEBHOOKS, "MM_GET_MONITOR_WEBHOOKS"},
     {kekmonitors::COMMANDS::MM_SET_SCRAPER_CONFIG, "MM_SET_SCRAPER_CONFIG"},
     {kekmonitors::COMMANDS::MM_GET_SCRAPER_CONFIG, "MM_GET_SCRAPER_CONFIG"},
-    {kekmonitors::COMMANDS::MM_SET_SCRAPER_WHITELIST, "MM_SET_SCRAPER_WHITELIST"},
-    {kekmonitors::COMMANDS::MM_GET_SCRAPER_WHITELIST, "MM_GET_SCRAPER_WHITELIST"},
-    {kekmonitors::COMMANDS::MM_SET_SCRAPER_BLACKLIST, "MM_SET_SCRAPER_BLACKLIST"},
-    {kekmonitors::COMMANDS::MM_GET_SCRAPER_BLACKLIST, "MM_GET_SCRAPER_BLACKLIST"},
+    {kekmonitors::COMMANDS::MM_SET_SCRAPER_WHITELIST,
+     "MM_SET_SCRAPER_WHITELIST"},
+    {kekmonitors::COMMANDS::MM_GET_SCRAPER_WHITELIST,
+     "MM_GET_SCRAPER_WHITELIST"},
+    {kekmonitors::COMMANDS::MM_SET_SCRAPER_BLACKLIST,
+     "MM_SET_SCRAPER_BLACKLIST"},
+    {kekmonitors::COMMANDS::MM_GET_SCRAPER_BLACKLIST,
+     "MM_GET_SCRAPER_BLACKLIST"},
     {kekmonitors::COMMANDS::MM_SET_SCRAPER_WEBHOOKS, "MM_SET_SCRAPER_WEBHOOKS"},
     {kekmonitors::COMMANDS::MM_GET_SCRAPER_WEBHOOKS, "MM_GET_SCRAPER_WEBHOOKS"},
     {kekmonitors::COMMANDS::MM_SET_MONITOR_SCRAPER_BLACKLIST,
@@ -82,7 +76,8 @@ static std::map<kekmonitors::COMMANDS, std::string> commandToString{
      "MM_SET_MONITOR_SCRAPER_WHITELIST"},
     {kekmonitors::COMMANDS::MM_SET_MONITOR_SCRAPER_WEBHOOKS,
      "MM_SET_MONITOR_SCRAPER_WEBHOOKS"},
-    {kekmonitors::COMMANDS::MM_SET_MONITOR_SCRAPER_CONFIG, "MM_SET_MONITOR_SCRAPER_CONFIG"},
+    {kekmonitors::COMMANDS::MM_SET_MONITOR_SCRAPER_CONFIG,
+     "MM_SET_MONITOR_SCRAPER_CONFIG"},
     {kekmonitors::COMMANDS::MM_GET_MONITOR_SHOES, "MM_GET_MONITOR_SHOES"},
     {kekmonitors::COMMANDS::MM_GET_SCRAPER_SHOES, "MM_GET_SCRAPER_SHOES"},
 };
@@ -102,10 +97,12 @@ static std::map<kekmonitors::ERRORS, std::string> errorsToString = {
     {kekmonitors::ERRORS::MISSING_PAYLOAD_ARGS, "MISSING_PAYLOAD_ARGS"},
     {kekmonitors::ERRORS::MM_COULDNT_ADD_MONITOR, "MM_COULDNT_ADD_MONITOR"},
     {kekmonitors::ERRORS::MM_COULDNT_ADD_SCRAPER, "MM_COULDNT_ADD_SCRAPER"},
-    {kekmonitors::ERRORS::MM_COULDNT_ADD_MONITOR_SCRAPER, "MM_COULDNT_ADD_MONITOR_SCRAPER"},
+    {kekmonitors::ERRORS::MM_COULDNT_ADD_MONITOR_SCRAPER,
+     "MM_COULDNT_ADD_MONITOR_SCRAPER"},
     {kekmonitors::ERRORS::MM_COULDNT_STOP_MONITOR, "MM_COULDNT_STOP_MONITOR"},
     {kekmonitors::ERRORS::MM_COULDNT_STOP_SCRAPER, "MM_COULDNT_STOP_SCRAPER"},
-    {kekmonitors::ERRORS::MM_COULDNT_STOP_MONITOR_SCRAPER, "MM_COULDNT_STOP_MONITOR_SCRAPER"},
+    {kekmonitors::ERRORS::MM_COULDNT_STOP_MONITOR_SCRAPER,
+     "MM_COULDNT_STOP_MONITOR_SCRAPER"},
     {kekmonitors::ERRORS::OTHER_ERROR, "OTHER_ERROR"},
     {kekmonitors::ERRORS::UNKNOWN_ERROR, "UNKNOWN_ERROR"},
 };
@@ -117,7 +114,7 @@ std::string getLocalKekDir();
 std::string getContentIfFileExistsElseCreate(const std::string &filepath,
                                              const std::string &content = "");
 
-void initDebugLogger();
+std::shared_ptr<spdlog::logger> initDebugLogger();
 
 std::unique_ptr<spdlog::logger> getLogger(const std::string &name);
 } // namespace kekmonitors::utils

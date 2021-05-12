@@ -1,5 +1,7 @@
 #include <asio.hpp>
+#include <boost/filesystem.hpp>
 #include <iostream>
+#include <kekmonitors/config.hpp>
 #include <kekmonitors/msg.hpp>
 #include <kekmonitors/utils.hpp>
 
@@ -24,24 +26,25 @@ int main(int argc, char *argv[]) {
     cmd.setCmd((kekmonitors::COMMANDS)val);
     io_context io;
     local::stream_protocol::socket sock(io);
+    kekmonitors::utils::initDebugLogger();
+    kekmonitors::Config cfg;
     sock.connect(local::stream_protocol::endpoint(
-        "/home/berton/.kekmonitors/sockets/MonitorManager"));
+        cfg.parser.get<std::string>("GlobalConfig.socket_path") +
+        boost::filesystem::path::separator + "MonitorManager"));
     sock.send(buffer(cmd.toJson().dump()));
     sock.shutdown(local::stream_protocol::socket::shutdown_send);
-    std::vector<char>buf(1024);
+    std::vector<char> buf(1024);
     sock.receive(buffer(buf));
     sock.close();
     auto logger = kekmonitors::utils::getLogger("MomanCli");
     kekmonitors::Response resp;
     resp.fromString(std::string(buf.begin(), buf.end()));
-    if (resp.getError()!=kekmonitors::ERRORS::OK) {
+    if (resp.getError() != kekmonitors::ERRORS::OK) {
         logger->error(kekmonitors::utils::errorsToString[resp.getError()]);
-        if (!resp.getInfo().empty())
-        {
+        if (!resp.getInfo().empty()) {
             logger->info(resp.getInfo());
         }
-    }
-    else
+    } else
         logger->info(kekmonitors::utils::errorsToString[resp.getError()]);
     return 0;
 }
