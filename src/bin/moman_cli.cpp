@@ -13,8 +13,12 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     if (!std::strcmp(argv[1], "--list-cmd")) {
-        std::cerr << "Not implemented" << std::endl;
-        return 1;
+        for (const auto &commandPair: kekmonitors::utils::commandStringMap.left)
+        {
+            std::cout << commandPair.second << "\n";
+        }
+        std::cout << std::endl;
+        return 0;
     }
     kekmonitors::Cmd cmd;
     char *invalidPtr = nullptr;
@@ -26,7 +30,6 @@ int main(int argc, char *argv[]) {
     cmd.setCmd((kekmonitors::COMMANDS)val);
     io_context io;
     local::stream_protocol::socket sock(io);
-    kekmonitors::utils::initDebugLogger();
     kekmonitors::Config cfg;
     sock.connect(local::stream_protocol::endpoint(
         cfg.parser.get<std::string>("GlobalConfig.socket_path") +
@@ -40,11 +43,11 @@ int main(int argc, char *argv[]) {
     kekmonitors::Response resp;
     resp.fromString(std::string(buf.begin(), buf.end()));
     if (resp.getError() != kekmonitors::ERRORS::OK) {
-        logger->error(kekmonitors::utils::errorsToString[resp.getError()]);
+        logger->error(kekmonitors::utils::errorToString(resp.getError()));
         if (!resp.getInfo().empty()) {
             logger->info(resp.getInfo());
         }
     } else
-        logger->info(kekmonitors::utils::errorsToString[resp.getError()]);
+        logger->info(kekmonitors::utils::errorToString(resp.getError()));
     return 0;
 }

@@ -49,4 +49,8 @@ Config::Config() {
     utils::getContentIfFileExistsElseCreate(configPath, defaultConfig);
     pt::read_ini(configPath, parser);
 }
+Config::~Config()
+{
+    KDBG("Config destructor");
+}
 } // namespace kekmonitors

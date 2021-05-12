@@ -13,5 +13,6 @@ class Config {
     boost::property_tree::ptree parser;
 
     Config();
+    ~Config();
 };
 } // namespace kekmonitors

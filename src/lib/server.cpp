@@ -89,12 +89,12 @@ std::string getServerPath(const std::shared_ptr<Config> &config,
 UnixServer::UnixServer(io_context &io, const std::string &socketName,
                        std::shared_ptr<Config> config)
     : _io(io), _config(std::move(config)) {
-    if (config == nullptr)
+    if (!_config)
         _config = std::make_shared<Config>();
     _logger = utils::getLogger("UnixServer");
-    _serverPath = getServerPath(config, socketName);
+    _serverPath = getServerPath(_config, socketName);
     _acceptor =
-        std::make_unique<local::stream_protocol::acceptor>(io, _serverPath);
+        std::make_unique<local::stream_protocol::acceptor>(_io, _serverPath);
     _logger->info("Unix server initialized, accepting connections...");
     startAccepting();
 };
@@ -107,7 +107,7 @@ UnixServer::UnixServer(io_context &io, const std::string &socketName,
     _logger = utils::getLogger("UnixServer");
     _serverPath = getServerPath(_config, socketName);
     _acceptor =
-        std::make_unique<local::stream_protocol::acceptor>(io, _serverPath);
+        std::make_unique<local::stream_protocol::acceptor>(_io, _serverPath);
     _logger->info("Unix server initialized, accepting connections...");
     startAccepting();
 }
@@ -137,7 +137,12 @@ void UnixServer::onConnect(const std::error_code &err,
 
 Response UnixServer::_handleCallback(const Cmd &cmd) {
     auto command = static_cast<uint32_t>(cmd.getCmd());
-    _logger->info("Received cmd " + std::to_string(command));
+    try {
+        _logger->info("Received cmd " + utils::commandToString(cmd.getCmd()));
+    } catch(std::out_of_range &)
+    {
+        _logger->info("Received cmd " + std::to_string(static_cast<uint32_t>(cmd.getCmd())));
+    }
     try {
         return _callbacks.at(cmd.getCmd())(cmd);
     } catch (std::out_of_range &e) {
