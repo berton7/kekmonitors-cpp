@@ -35,8 +35,8 @@ bool Cmd::fromString(const std::string &str) {
 
 std::string Cmd::toString() { return toJson().dump(); }
 
-COMMANDS Cmd::getCmd() const { return _cmd; }
-void Cmd::setCmd(COMMANDS cmd) { _cmd = cmd; }
+kekmonitors::CommandType Cmd::getCmd() const { return _cmd; }
+void Cmd::setCmd(kekmonitors::CommandType cmd) { _cmd = cmd; }
 const json &Cmd::getPayload() const { return _payload; }
 void Cmd::setPayload(const json &payload) { _payload = payload; }
 
@@ -69,8 +69,8 @@ json Response::toJson() {
         j["_Response__value"] = _payload;
     return j;
 };
-ERRORS Response::getError() const { return _error; }
-void Response::setError(ERRORS error) { _error = error; }
+kekmonitors::ErrorType Response::getError() const { return _error; }
+void Response::setError(kekmonitors::ErrorType error) { _error = error; }
 const json &Response::getPayload() const { return _payload; }
 void Response::setPayload(const json &payload) { _payload = payload; }
 const std::string &Response::getInfo() const { return _info; }

@@ -10,7 +10,7 @@ using namespace asio;
 
 typedef std::function<kekmonitors::Response(const kekmonitors::Cmd &)>
     CmdCallback;
-typedef std::map<const kekmonitors::COMMANDS, CmdCallback> CallbackMap;
+typedef std::map<const kekmonitors::CommandType, CmdCallback> CallbackMap;
 
 namespace kekmonitors {
 class IConnection {

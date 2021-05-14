@@ -2,7 +2,6 @@
 #include <boost/filesystem.hpp>
 #include <iostream>
 #include <kekmonitors/config.hpp>
-#include <kekmonitors/msg.hpp>
 #include <kekmonitors/utils.hpp>
 
 using namespace asio;
@@ -13,21 +12,31 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     if (!std::strcmp(argv[1], "--list-cmd")) {
-        for (const auto &commandPair: kekmonitors::utils::commandStringMap.left)
-        {
-            std::cout << commandPair.second << "\n";
+        for (kekmonitors::CommandType i = kekmonitors::COMMANDS::PING;
+             i < KEKMONITORS_FIRST_CUSTOM_COMMAND; i++) {
+            std::cout << kekmonitors::utils::getStringWithoutNamespaces(
+                             kekmonitors::utils::commandToString(i))
+                      << "\n";
         }
         std::cout << std::endl;
         return 0;
     }
     kekmonitors::Cmd cmd;
     char *invalidPtr = nullptr;
-    int val = (int)std::strtol(argv[1], &invalidPtr, 10);
+    kekmonitors::CommandType command;
+    auto intCommand =
+        static_cast<uint32_t>(std::strtol(argv[1], &invalidPtr, 10));
     if (*invalidPtr != '\0') {
-        std::cerr << "Not a number: " << invalidPtr << std::endl;
-        return 2;
-    }
-    cmd.setCmd((kekmonitors::COMMANDS)val);
+        try {
+            command = kekmonitors::utils::stringToCommand(argv[1]);
+        } catch (std::out_of_range &) {
+            std::cerr << "argv[2] is not a number nor a valid command"
+                      << std::endl;
+            return 2;
+        }
+    } else
+        command = static_cast<kekmonitors::CommandType>(intCommand);
+    cmd.setCmd(command);
     io_context io;
     local::stream_protocol::socket sock(io);
     kekmonitors::Config cfg;

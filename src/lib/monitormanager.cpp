@@ -1,5 +1,6 @@
 #include <kekmonitors/monitormanager.hpp>
 #include <kekmonitors/utils.hpp>
+#include <iostream>
 
 using namespace asio;
 using namespace std::placeholders;
@@ -24,7 +25,9 @@ MonitorManager::~MonitorManager() = default;
 
 Response MonitorManager::onPing(const Cmd &cmd) {
     _logger->info("onPing callback!");
-    return Response::okResponse();
+    auto response = Response::okResponse();
+    response.setInfo("Pong");
+    return response;
 }
 
 Response MonitorManager::shutdown() {

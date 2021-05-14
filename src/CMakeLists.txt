@@ -1,6 +1,8 @@
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+option(KEKMONITORS_SHARED_LIBS "Build kekmonitors shared or static" OFF)
+
 include(ExternalProject)
 
 ExternalProject_Add(spdlog
@@ -24,10 +26,14 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system filesystem)
 
-set(KEKMONITORS_SOURCE lib/monitormanager.cpp lib/msg.cpp lib/server.cpp lib/utils.cpp lib/config.cpp)
+set(KEKMONITORS_SOURCE lib/monitormanager.cpp lib/msg.cpp lib/server.cpp lib/utils.cpp lib/config.cpp lib/core.cpp)
 set(KEKMONITORS_LIB_DEPS pthread Boost::system Boost::filesystem kekmonitors)
 
-add_library(kekmonitors ${KEKMONITORS_SOURCE})
+if (KEKMONITORS_SHARED_LIBS)
+	add_library(kekmonitors SHARED ${KEKMONITORS_SOURCE})
+else()
+	add_library(kekmonitors STATIC ${KEKMONITORS_SOURCE})
+endif()
 add_dependencies(kekmonitors spdlog)
 
 add_executable(moman bin/moman.cpp)
