@@ -7,19 +7,35 @@ namespace kekmonitors {
 Cmd::Cmd() : _cmd(COMMANDS::PING){};
 Cmd::~Cmd() = default;
 
-bool Cmd::fromJson(const json &obj) {
+Cmd Cmd::fromJson(const json &obj) {
+    Cmd cmd;
     bool success = false;
     try {
-        _cmd = obj.at("_Cmd__cmd");
-        success = true;
+        cmd._cmd = obj.at("_Cmd__cmd");
     } catch (json::exception &e) {
+        throw std::invalid_argument("Json object doesn't contain \"_Cmd__cmd\"");
     }
     try {
-        _payload = obj.at("_Cmd__payload");
+        cmd._payload = obj.at("_Cmd__payload");
     } catch (json::exception &e) {
     };
-    return success;
+    return cmd;
 };
+
+Cmd Cmd::fromJson(const json &obj, std::error_code &ec)
+{
+    Cmd cmd;
+    try {
+        cmd._cmd = obj.at("_Cmd__cmd");
+    } catch (json::exception &e) {
+        ec = std::make_error_code(std::errc::invalid_argument);
+    }
+    try {
+        cmd._payload = obj.at("_Cmd__payload");
+    } catch (json::exception &e) {
+    };
+    return cmd;
+}
 
 json Cmd::toJson() {
     json j;
@@ -29,7 +45,7 @@ json Cmd::toJson() {
     return j;
 };
 
-bool Cmd::fromString(const std::string &str) {
+Cmd Cmd::fromString(const std::string &str) {
     return fromJson(json::parse(str));
 }
 
@@ -43,23 +59,42 @@ void Cmd::setPayload(const json &payload) { _payload = payload; }
 Response::Response() : _error(ERRORS::OK){};
 Response::~Response() = default;
 
-bool Response::fromJson(const json &obj) {
-    bool success = false;
+Response Response::fromJson(const json &obj) {
+    Response response;
     try {
-        _error = obj.at("_Response__error");
-        success = true;
+        response._error = obj.at("_Response__error");
+    } catch (json::exception &e) {
+        throw std::invalid_argument("Json object doesn't contain \"_Response__error\"");
+    };
+    try {
+        response._payload = obj.at("_Response__payload");
     } catch (json::exception &e) {
     };
     try {
-        _payload = obj.at("_Response__payload");
+        response._info = obj.at("_Response__info");
     } catch (json::exception &e) {
     };
-    try {
-        _info = obj.at("_Response__info");
-    } catch (json::exception &e) {
-    };
-    return success;
+    return response;
 };
+
+Response Response::fromJson(const json &obj, std::error_code &ec) {
+    Response response;
+    try {
+        response._error = obj.at("_Response__error");
+    } catch (json::exception &e) {
+        ec = std::make_error_code(std::errc::invalid_argument);
+    };
+    try {
+        response._payload = obj.at("_Response__payload");
+    } catch (json::exception &e) {
+    };
+    try {
+        response._info = obj.at("_Response__info");
+    } catch (json::exception &e) {
+    };
+    return response;
+};
+
 json Response::toJson() {
     json j;
     j["_Response__error"] = _error;
@@ -87,7 +122,7 @@ Response Response::badResponse() {
     return resp;
 }
 std::string Response::toString() { return toJson().dump(); }
-bool Response::fromString(const std::string &str) {
+Response Response::fromString(const std::string &str) {
     return fromJson(json::parse(str));
 }
 }; // namespace kekmonitors

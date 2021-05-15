@@ -13,7 +13,7 @@ void onRead(const error_code &err, size_t) {
     if (err && err != error::eof)
         logger->error(err.message());
     else
-        logger->info(buf);
+        logger->info(kekmonitors::utils::errorToString(kekmonitors::Response::fromString(buf).getError()));
 }
 
 void onWrite(const error_code &err, size_t,
@@ -40,6 +40,7 @@ void onConnect(const error_code &err, local::stream_protocol::socket *socket) {
 
 int main() {
     io_context io;
+    kekmonitors::init();
     local::stream_protocol::socket socket(io);
     socket.async_connect(
         local::stream_protocol::endpoint(kekmonitors::utils::getLocalKekDir() +

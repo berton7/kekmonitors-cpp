@@ -11,6 +11,7 @@ int main(int argc, char *argv[]) {
         std::cout << "Usage: " << argv[0] << " <cmd> [payload]" << std::endl;
         return 1;
     }
+    kekmonitors::init();
     if (!std::strcmp(argv[1], "--list-cmd")) {
         for (kekmonitors::CommandType i = kekmonitors::COMMANDS::PING;
              i < KEKMONITORS_FIRST_CUSTOM_COMMAND; i++) {

@@ -109,4 +109,6 @@ typedef ErrorStringMap::value_type ErrorStringValue;
 
 CommandStringMap &commandStringMap();
 ErrorStringMap &errorStringMap();
+
+void init();
 } // namespace kekmonitors

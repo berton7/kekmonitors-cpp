@@ -19,15 +19,12 @@ std::string getStringWithoutNamespaces(const std::string &command) {
 }
 
 namespace kekmonitors {
-namespace {
 std::shared_ptr<spdlog::logger> initDebugLogger() {
-#ifdef KEKMONITORS_DEBUG
     auto dbgLog = spdlog::stdout_color_st("KDBG");
     auto formatter = std::make_unique<spdlog::pattern_formatter>();
     dbgLog->set_pattern("%v");
     dbgLog->set_level(spdlog::level::debug);
     return dbgLog;
-#endif
 }
 void initMaps() {
     CORE_REGISTER_COMMAND(kekmonitors::COMMANDS::PING);
@@ -105,13 +102,12 @@ void initMaps() {
     CORE_REGISTER_ERROR(kekmonitors::ERRORS::UNKNOWN_ERROR);
 }
 
-int init() {
+void init() {
     initMaps();
+#ifdef KEKMONITORS_DEBUG
     initDebugLogger();
-    return 0;
+#endif
 }
-auto _ = init();
-} // namespace
 
 CommandStringMap &commandStringMap()
 {

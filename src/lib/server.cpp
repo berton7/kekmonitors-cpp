@@ -32,10 +32,10 @@ void CmdConnection::onRead(const std::error_code &err, size_t read) {
     if (!err || err == asio::error::eof) {
         _timeout.cancel();
         try {
-            Cmd cmd;
             auto j = json::parse(_buffer);
-            bool success = cmd.fromJson(j);
-            if (success) {
+            std::error_code ec;
+            auto cmd = Cmd::fromJson(j, ec);
+            if (!ec) {
                 async_write(_socket, asio::buffer(_cb(cmd).toJson().dump()),
                             std::bind(&CmdConnection::onWrite,
                                       shared_from_this(), std::placeholders::_1,
