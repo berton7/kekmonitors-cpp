@@ -37,6 +37,32 @@ int main(int argc, char *argv[]) {
         }
     } else
         command = static_cast<kekmonitors::CommandType>(intCommand);
+
+    if (argc > 2)
+    {
+        json payload;
+        if (!(argc % 2))
+        {
+            for (int i=2; i<argc; i++)
+            {
+                if (!(i%2))
+                {
+                    if (!(argv[i][0] == '-' && argv[i][1] == '-'))
+                    {
+                        std::cerr << "You must start every payload key with \"--\"" << std::endl;
+                        return 4;
+                    }
+                    payload[argv[i] + 2] = argv[i+1];
+                }
+            }
+        }
+        else
+        {
+            std::cerr << "Incorrect number of payload options!" << std::endl;
+            return 3;
+        }
+        cmd.setPayload(payload);
+    }
     cmd.setCmd(command);
     io_context io;
     local::stream_protocol::socket sock(io);
@@ -50,14 +76,15 @@ int main(int argc, char *argv[]) {
     sock.receive(buffer(buf));
     sock.close();
     auto logger = kekmonitors::utils::getLogger("MomanCli");
-    kekmonitors::Response resp;
-    resp.fromString(std::string(buf.begin(), buf.end()));
-    if (resp.getError() != kekmonitors::ERRORS::OK) {
-        logger->error(kekmonitors::utils::errorToString(resp.getError()));
-        if (!resp.getInfo().empty()) {
-            logger->info(resp.getInfo());
-        }
-    } else
-        logger->info(kekmonitors::utils::errorToString(resp.getError()));
+    auto resp = kekmonitors::Response::fromString(std::string(buf.begin(), buf.end()));
+    std::string strError = kekmonitors::utils::errorToString(resp.getError());
+    if (resp.getError() != kekmonitors::ERRORS::OK)
+        logger->error(strError);
+    else
+        logger->info(strError);
+    if (!resp.getInfo().empty())
+        logger->info(resp.getInfo());
+    if (!resp.getPayload().empty())
+        logger->info(resp.getPayload().dump());
     return 0;
 }

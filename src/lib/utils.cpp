@@ -2,6 +2,7 @@
 // Created by berton on 4/28/21.
 //
 #include <boost/filesystem.hpp>
+#include <boost/process.hpp>
 #include <kekmonitors/msg.hpp>
 #include <kekmonitors/utils.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -89,5 +90,15 @@ std::string getStringWithoutNamespaces(const std::string &command) {
 std::string getStringWithoutNamespaces(CommandType command) {
     return getStringWithoutNamespaces(
         kekmonitors::utils::commandToString(command));
+}
+boost::filesystem::path getPythonExecutable() {
+    namespace bp = boost::process;
+    for (const auto &possiblePythonPath: {"python", "python3"})
+    {
+        auto pythonPath=bp::search_path(possiblePythonPath);
+        if (!pythonPath.empty())
+            return pythonPath;
+    }
+    return "";
 }
 } // namespace kekmonitors::utils

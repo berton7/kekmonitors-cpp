@@ -101,7 +101,7 @@ json Response::toJson() {
     if (!_info.empty())
         j["_Response__info"] = _info;
     if (!_payload.empty())
-        j["_Response__value"] = _payload;
+        j["_Response__payload"] = _payload;
     return j;
 };
 kekmonitors::ErrorType Response::getError() const { return _error; }

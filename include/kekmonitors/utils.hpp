@@ -1,4 +1,5 @@
 #pragma once
+#include <boost/filesystem.hpp>
 #include <kekmonitors/config.hpp>
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/msg.hpp>
@@ -34,4 +35,6 @@ std::unique_ptr<spdlog::logger> getLogger(const std::string &name);
 std::string getStringWithoutNamespaces(const std::string &command);
 
 std::string getStringWithoutNamespaces(CommandType command);
+
+boost::filesystem::path getPythonExecutable();
 } // namespace kekmonitors::utils
