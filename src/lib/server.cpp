@@ -5,16 +5,19 @@
 #include <kekmonitors/utils.hpp>
 
 namespace kekmonitors {
-IConnection::IConnection(io_context &io)
-    : _buffer(1024), _socket(io), _timeout(io){};
-IConnection::~IConnection() {
+CmdConnection::CmdConnection(io_context &io, UnixServer &server)
+    : _io(io), _server(server), _buffer(1024), _socket(io), _timeout(io){
+    KDBG("Allocating new connection");
+};
+
+CmdConnection::~CmdConnection() {
     KDBG("Destroying connection");
     if (_socket.is_open())
         _socket.close();
     _timeout.cancel();
 };
 
-void IConnection::onTimeout(const std::error_code &err) {
+void CmdConnection::onTimeout(const std::error_code &err) {
     if (err) {
         if (err != error::operation_aborted) {
             KDBG(err.message());
@@ -26,7 +29,7 @@ void IConnection::onTimeout(const std::error_code &err) {
     }
 }
 
-local::stream_protocol::socket &IConnection::getSocket() { return _socket; }
+local::stream_protocol::socket &CmdConnection::getSocket() { return _socket; }
 
 void CmdConnection::onRead(const std::error_code &err, size_t read) {
     if (!err || err == asio::error::eof) {
@@ -36,10 +39,16 @@ void CmdConnection::onRead(const std::error_code &err, size_t read) {
             std::error_code ec;
             auto cmd = Cmd::fromJson(j, ec);
             if (!ec) {
-                async_write(_socket, asio::buffer(_cb(cmd).toJson().dump()),
-                            std::bind(&CmdConnection::onWrite,
-                                      shared_from_this(), std::placeholders::_1,
-                                      std::placeholders::_2));
+                auto shared = shared_from_this();
+                asio::defer(_io, [cmd, shared](){
+                    shared->_server._handleCallback(cmd, [cmd, shared](const Response &response){
+                        async_write(shared->_socket, asio::buffer(response.toString()),
+                                    std::bind(&CmdConnection::onWrite,
+                                              shared, std::placeholders::_1,
+                                              std::placeholders::_2));
+                    });
+
+                });
             } else {
                 KDBG("Received connection but couldn't parse from json: " +
                       std::string(_buffer.data()));
@@ -52,15 +61,9 @@ void CmdConnection::onRead(const std::error_code &err, size_t read) {
     }
 };
 
-CmdConnection::CmdConnection(io_context &io, const CmdCallback &&cb)
-    : IConnection(io), _cb(cb) {
-    KDBG("Allocating new connection");
-}
-
-std::shared_ptr<CmdConnection> CmdConnection::create(io_context &io,
-                                                     const CmdCallback &&cb) {
+std::shared_ptr<CmdConnection> CmdConnection::create(io_context &io, UnixServer &server) {
     return std::make_shared<CmdConnection>(
-        io, static_cast<const CmdCallback &&>(cb)); // ???
+        io, server); // ???
 }
 
 void CmdConnection::asyncRead() {
@@ -119,8 +122,7 @@ UnixServer::~UnixServer() {
 
 void UnixServer::startAccepting() {
     auto connection =
-        CmdConnection::create(_io, std::bind(&UnixServer::_handleCallback, this,
-                                             std::placeholders::_1));
+        CmdConnection::create(_io, *this);
     _acceptor->async_accept(connection->getSocket(),
                             std::bind(&UnixServer::onConnect, this,
                                       std::placeholders::_1, connection));
@@ -135,7 +137,8 @@ void UnixServer::onConnect(const std::error_code &err,
         KDBG(err.message());
 }
 
-Response UnixServer::_handleCallback(const Cmd &cmd) {
+void UnixServer::_handleCallback(const Cmd &cmd,
+                                 ResponseCallback &&responseCallback) {
     auto command = static_cast<uint32_t>(cmd.getCmd());
     try {
         _logger->info("Received cmd " + utils::commandToString(cmd.getCmd()));
@@ -144,12 +147,12 @@ Response UnixServer::_handleCallback(const Cmd &cmd) {
         _logger->info("Received cmd " + std::to_string(static_cast<uint32_t>(cmd.getCmd())));
     }
     try {
-        return _callbacks.at(cmd.getCmd())(cmd);
+        _callbacks.at(cmd.getCmd())(cmd, std::move(responseCallback));
     } catch (std::out_of_range &e) {
         _logger->warn("Cmd " + std::to_string(command) + " was not registered");
         Response resp;
         resp.setError(ERRORS::UNRECOGNIZED_COMMAND);
-        return resp;
+        responseCallback(resp);
     }
 }
 

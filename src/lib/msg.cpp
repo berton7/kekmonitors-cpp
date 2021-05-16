@@ -37,7 +37,7 @@ Cmd Cmd::fromJson(const json &obj, std::error_code &ec)
     return cmd;
 }
 
-json Cmd::toJson() {
+json Cmd::toJson() const {
     json j;
     j["_Cmd__cmd"] = _cmd;
     if (!_payload.empty())
@@ -49,7 +49,7 @@ Cmd Cmd::fromString(const std::string &str) {
     return fromJson(json::parse(str));
 }
 
-std::string Cmd::toString() { return toJson().dump(); }
+std::string Cmd::toString() const { return toJson().dump(); }
 
 kekmonitors::CommandType Cmd::getCmd() const { return _cmd; }
 void Cmd::setCmd(kekmonitors::CommandType cmd) { _cmd = cmd; }
@@ -95,7 +95,7 @@ Response Response::fromJson(const json &obj, std::error_code &ec) {
     return response;
 };
 
-json Response::toJson() {
+json Response::toJson() const {
     json j;
     j["_Response__error"] = _error;
     if (!_info.empty())
@@ -121,7 +121,7 @@ Response Response::badResponse() {
     resp.setError(ERRORS::OTHER_ERROR);
     return resp;
 }
-std::string Response::toString() { return toJson().dump(); }
+std::string Response::toString() const { return toJson().dump(); }
 Response Response::fromString(const std::string &str) {
     return fromJson(json::parse(str));
 }

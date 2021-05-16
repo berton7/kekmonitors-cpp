@@ -16,7 +16,7 @@ namespace kekmonitors {
 class Process {
   private:
     const std::string _className{};
-    const boost::process::child _process;
+    boost::process::child _process;
     const std::time_t _creation = 0;
 
   public:
@@ -36,7 +36,7 @@ class Process {
     }
 
     std::time_t getCreation() const { return _creation; };
-    const boost::process::child &getProcess() const { return _process; };
+    boost::process::child &getProcess() { return _process; };
     json toJson() const {
         return {
             {_className, {{"Started at", _creation}, {"PID", _process.id()}}}};

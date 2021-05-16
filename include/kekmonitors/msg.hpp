@@ -9,8 +9,8 @@ namespace kekmonitors {
 
 class IMessage {
   public:
-    virtual json toJson() = 0;
-    virtual std::string toString() = 0;
+    virtual json toJson() const = 0;
+    virtual std::string toString() const = 0;
 };
 
 class Cmd : public IMessage {
@@ -24,10 +24,10 @@ class Cmd : public IMessage {
 
     static Cmd fromJson(const json &obj);
     static Cmd fromJson(const json &obj, std::error_code &ec);
-    json toJson() override;
+    json toJson() const override;
     static Cmd fromString(const std::string &str);
     static Cmd fromString(const std::string &str, std::error_code &ec);
-    std::string toString() override;
+    std::string toString() const override;
 
     kekmonitors::CommandType getCmd() const;
     void setCmd(kekmonitors::CommandType cmd);
@@ -47,10 +47,10 @@ class Response : public IMessage {
 
     static Response fromJson(const json &obj);
     static Response fromJson(const json &obj, std::error_code &ec);
-    json toJson() override;
+    json toJson() const override;
     static Response fromString(const std::string &str);
     static Response fromString(const std::string &str, std::error_code &ec);
-    std::string toString() override;
+    std::string toString() const override;
 
     kekmonitors::ErrorType getError() const;
     void setError(kekmonitors::ErrorType error);

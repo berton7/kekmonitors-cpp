@@ -91,14 +91,28 @@ std::string getStringWithoutNamespaces(CommandType command) {
     return getStringWithoutNamespaces(
         kekmonitors::utils::commandToString(command));
 }
+
 boost::filesystem::path getPythonExecutable() {
     namespace bp = boost::process;
-    for (const auto &possiblePythonPath: {"python", "python3"})
-    {
-        auto pythonPath=bp::search_path(possiblePythonPath);
-        if (!pythonPath.empty())
-            return pythonPath;
+    static boost::filesystem::path pythonExecutable{};
+    if (pythonExecutable.empty()) {
+        for (const auto &possiblePythonPath : {"python", "python3"}) {
+            auto pythonPath = bp::search_path(possiblePythonPath);
+            if (!pythonPath.empty()) {
+                bp::ipstream in;
+                bp::system(pythonPath, "--version", bp::std_out > in);
+                // "Python 2.7.18"
+                // "Python 3.6.12"
+                std::string version;
+                std::getline(in, version);
+                if (version[7] == '3')
+                {
+                    pythonExecutable = pythonPath;
+                    return pythonExecutable;
+                }
+            }
+        }
     }
-    return "";
+    return pythonExecutable;
 }
 } // namespace kekmonitors::utils

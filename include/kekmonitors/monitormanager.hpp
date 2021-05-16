@@ -7,19 +7,19 @@
 namespace kekmonitors {
 class MonitorManager {
   private:
+    io_context &_io;
     std::unique_ptr<UnixServer> _unixServer=nullptr;
     std::shared_ptr<Config> _config=nullptr;
     std::unique_ptr<spdlog::logger> _logger = nullptr;
-    std::map<std::string, std::unique_ptr<MonitorProcess>> _monitorProcesses {};
-
+    std::map<const std::string, std::unique_ptr<MonitorProcess>> _monitorProcesses {};
 
   public:
     MonitorManager() = delete;
     explicit MonitorManager(asio::io_context &io, std::shared_ptr<Config> config = nullptr);
     ~MonitorManager();
-    Response shutdown();
-    Response onPing(const Cmd &cmd);
-    Response onAddMonitor(const Cmd &cmd);
-    Response onGetMonitorStatus(const Cmd &cmd);
+    void shutdown(const Cmd &cmd, const ResponseCallback &&cb);
+    void onPing(const Cmd &cmd, const ResponseCallback &&cb);
+    void onAddMonitor(const Cmd &cmd, const ResponseCallback &&cb);
+    void onGetMonitorStatus(const Cmd &cmd, const ResponseCallback &&cb);
 };
 } // namespace kekmonitors
