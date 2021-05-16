@@ -61,25 +61,23 @@ void MonitorManager::onAddMonitor(const Cmd &cmd, const ResponseCallback &&cb) {
                 cb(response);
                 return;
             }
-            auto monitorProcess =
-                new MonitorProcess(name, pythonExecutable, "");
 
-            auto delayTimer =
-                new steady_timer(_io, std::chrono::seconds(2));
+            auto monitorProcess = std::make_shared<MonitorProcess>(name, pythonExecutable, "");
+
+            auto delayTimer = std::make_shared<steady_timer>(_io, std::chrono::seconds(2));
+
             delayTimer->async_wait([=](const std::error_code &ec) {
-                delete delayTimer;
                 if (monitorProcess->getProcess().running()) {
-                    _monitorProcesses.insert(
-                        {monitorProcess->getClassName(),
-                         std::unique_ptr<MonitorProcess>(monitorProcess)});
                     cb(Response::okResponse());
+                    _monitorProcesses.insert({name, monitorProcess});
                 }
                 else
                 {
+                    auto s = monitorProcess->getClassName();
+                    auto i = _monitorProcesses.find(s);
                     Response response;
                     response.setError(ERRORS::MM_COULDNT_ADD_MONITOR);
                     response.setInfo("Monitor process exited too soon. Exit code: " + std::to_string(monitorProcess->getProcess().exit_code()));
-                    delete monitorProcess;
                     cb(response);
                 }
             });
