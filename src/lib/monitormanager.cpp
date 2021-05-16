@@ -39,56 +39,77 @@ void MonitorManager::onPing(const Cmd &cmd, const ResponseCallback &&cb) {
 
 void MonitorManager::onAddMonitor(const Cmd &cmd, const ResponseCallback &&cb) {
     Response response;
+
+    // various error checking
+
     if (cmd.getPayload() == nullptr) {
         response.setError(ERRORS::MISSING_PAYLOAD);
         cb(response);
         return;
     }
-    try {
-        const auto name = cmd.getPayload().at("name");
-        try {
-            _monitorProcesses.at(name);
-            response.setError(ERRORS::MM_COULDNT_ADD_MONITOR);
-            response.setInfo("Monitor already started.");
-            cb(response);
-            return;
-        } catch (std::out_of_range &) {
-            auto pythonExecutable = utils::getPythonExecutable();
-            if (pythonExecutable.empty())
-            {
-                response.setError(ERRORS::MM_COULDNT_ADD_MONITOR);
-                response.setInfo("Could not find a correct python version");
-                cb(response);
-                return;
-            }
 
-            auto monitorProcess = std::make_shared<MonitorProcess>(name, pythonExecutable, "");
+    std::string className;
+    const auto &payload = cmd.getPayload();
 
-            auto delayTimer = std::make_shared<steady_timer>(_io, std::chrono::seconds(2));
-
-            delayTimer->async_wait([=](const std::error_code &ec) {
-                if (monitorProcess->getProcess().running()) {
-                    cb(Response::okResponse());
-                    _monitorProcesses.insert({name, monitorProcess});
-                }
-                else
-                {
-                    auto s = monitorProcess->getClassName();
-                    auto i = _monitorProcesses.find(s);
-                    Response response;
-                    response.setError(ERRORS::MM_COULDNT_ADD_MONITOR);
-                    response.setInfo("Monitor process exited too soon. Exit code: " + std::to_string(monitorProcess->getProcess().exit_code()));
-                    cb(response);
-                }
-            });
-            return;
-        }
-    } catch (json::out_of_range &) {
+    if (payload.find("name") != payload.end()) {
+        className = payload.at("name");
+    }
+    else{
         response.setError(ERRORS::MISSING_PAYLOAD_ARGS);
-        response.setInfo("Missing payload arg: \"name\"");
+        response.setInfo("Missing payload arg: \"className\"");
         cb(response);
         return;
     }
+    if (_monitorProcesses.find(className) != _monitorProcesses.end()) {
+        response.setError(ERRORS::MM_COULDNT_ADD_MONITOR);
+        response.setInfo("Monitor already started.");
+        cb(response);
+        return;
+    }
+    else if (_tmpMonitorProcesses.find(className) != _monitorProcesses.end())
+    {
+        response.setError(ERRORS::MM_COULDNT_ADD_MONITOR);
+        response.setInfo("Monitor still being processed");
+        cb(response);
+        return;
+    }
+    auto pythonExecutable = utils::getPythonExecutable();
+    if (pythonExecutable.empty())
+    {
+        response.setError(ERRORS::MM_COULDNT_ADD_MONITOR);
+        response.setInfo("Could not find a correct python version");
+        cb(response);
+        return;
+    }
+
+    // if we get here we can try to start the monitor
+
+    auto monitorProcess = std::make_shared<MonitorProcess>(className, pythonExecutable, "");
+    _tmpMonitorProcesses.insert({className, monitorProcess});
+
+    auto delayTimer = std::make_shared<steady_timer>(_io, std::chrono::seconds(2));
+
+    delayTimer->async_wait([this, delayTimer, monitorProcess, cb](const std::error_code &ec) {
+        auto &className = monitorProcess->getClassName();
+        _tmpMonitorProcesses.erase(className);
+        if (ec)
+        {
+            _logger->error(ec.message());
+            auto response = Response::badResponse();
+            response.setInfo("Internal status timer failed with message: " + ec.message());
+            cb(response);
+            return;
+        }
+        if (monitorProcess->getProcess().running()) {
+            _monitorProcesses.insert({className, monitorProcess});
+            cb(Response::okResponse());
+            return;
+        }
+        Response response;
+        response.setError(ERRORS::MM_COULDNT_ADD_MONITOR);
+        response.setInfo("Monitor process exited too soon. Exit code: " + std::to_string(monitorProcess->getProcess().exit_code()));
+        cb(response);
+    });
 }
 
 void MonitorManager::onGetMonitorStatus(const Cmd &cmd,
