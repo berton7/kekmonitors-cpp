@@ -16,7 +16,7 @@ class MonitorManager {
 
   public:
     MonitorManager() = delete;
-    explicit MonitorManager(asio::io_context &io, std::shared_ptr<Config> config = nullptr);
+    explicit MonitorManager(boost::asio::io_context &io, std::shared_ptr<Config> config = nullptr);
     ~MonitorManager();
     void shutdown(const Cmd &cmd, const ResponseCallback &&cb);
     void onPing(const Cmd &cmd, const ResponseCallback &&cb);

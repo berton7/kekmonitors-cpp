@@ -2,8 +2,8 @@
 #include <kekmonitors/monitormanager.hpp>
 #include <kekmonitors/utils.hpp>
 
-using namespace asio;
-using namespace std::placeholders;
+using namespace boost::asio;
+using namespace boost::placeholders;
 
 namespace kekmonitors {
 

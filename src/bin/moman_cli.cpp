@@ -1,10 +1,10 @@
-#include <asio.hpp>
+#include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
 #include <iostream>
 #include <kekmonitors/config.hpp>
 #include <kekmonitors/utils.hpp>
 
-using namespace asio;
+using namespace boost::asio;
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {

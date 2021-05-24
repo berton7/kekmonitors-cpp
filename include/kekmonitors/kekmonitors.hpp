@@ -6,4 +6,5 @@
 #include <kekmonitors/moman.hpp>
 #include <kekmonitors/msg.hpp>
 #include <kekmonitors/server.hpp>
+#include <kekmonitors/typedefs.hpp>
 #include <kekmonitors/utils.hpp>

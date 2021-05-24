@@ -1,19 +1,20 @@
-#include <asio.hpp>
+#include <boost/asio.hpp>
 #include <functional>
 #include <iostream>
 #include <kekmonitors/msg.hpp>
 #include <kekmonitors/utils.hpp>
 
-using namespace asio;
+using namespace boost::asio;
+using namespace kekmonitors;
 
 char buf[1024];
-auto logger = kekmonitors::utils::getLogger("Stopmm");
+auto logger = utils::getLogger("Stopmm");
 
 void onRead(const error_code &err, size_t) {
     if (err && err != error::eof)
         logger->error(err.message());
     else
-        logger->info(kekmonitors::utils::errorToString(kekmonitors::Response::fromString(buf).getError()));
+        logger->info(utils::errorToString(Response::fromString(buf).getError()));
 }
 
 void onWrite(const error_code &err, size_t,
@@ -31,8 +32,8 @@ void onConnect(const error_code &err, local::stream_protocol::socket *socket) {
         logger->error(err.message());
         return;
     }
-    kekmonitors::Cmd cmd;
-    cmd.setCmd(kekmonitors::COMMANDS::MM_STOP_MONITOR_MANAGER);
+    Cmd cmd;
+    cmd.setCmd(COMMANDS::MM_STOP_MONITOR_MANAGER);
     async_write(*socket, buffer(cmd.toJson().dump()),
                 std::bind(&onWrite, std::placeholders::_1,
                           std::placeholders::_2, socket));
@@ -40,10 +41,10 @@ void onConnect(const error_code &err, local::stream_protocol::socket *socket) {
 
 int main() {
     io_context io;
-    kekmonitors::init();
+    init();
     local::stream_protocol::socket socket(io);
     socket.async_connect(
-        local::stream_protocol::endpoint(kekmonitors::utils::getLocalKekDir() +
+        local::stream_protocol::endpoint(utils::getLocalKekDir() +
                                          "/sockets/MonitorManager"),
         std::bind(&onConnect, std::placeholders::_1, &socket));
     io.run();

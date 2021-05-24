@@ -23,10 +23,10 @@ class Cmd : public IMessage {
     ~Cmd();
 
     static Cmd fromJson(const json &obj);
-    static Cmd fromJson(const json &obj, std::error_code &ec);
+    static Cmd fromJson(const json &obj, error_code &ec);
     json toJson() const override;
     static Cmd fromString(const std::string &str);
-    static Cmd fromString(const std::string &str, std::error_code &ec);
+    static Cmd fromString(const std::string &str, error_code &ec);
     std::string toString() const override;
 
     kekmonitors::CommandType getCmd() const;
@@ -46,10 +46,10 @@ class Response : public IMessage {
     ~Response();
 
     static Response fromJson(const json &obj);
-    static Response fromJson(const json &obj, std::error_code &ec);
+    static Response fromJson(const json &obj, error_code &ec);
     json toJson() const override;
     static Response fromString(const std::string &str);
-    static Response fromString(const std::string &str, std::error_code &ec);
+    static Response fromString(const std::string &str, error_code &ec);
     std::string toString() const override;
 
     kekmonitors::ErrorType getError() const;

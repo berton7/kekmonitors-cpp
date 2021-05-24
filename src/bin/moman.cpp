@@ -1,7 +1,7 @@
 #include <kekmonitors/monitormanager.hpp>
 
 int main() {
-    asio::io_context io;
+    boost::asio::io_context io;
     kekmonitors::init();
     kekmonitors::MonitorManager moman(io);
     io.run();

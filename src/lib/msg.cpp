@@ -22,13 +22,13 @@ Cmd Cmd::fromJson(const json &obj) {
     return cmd;
 };
 
-Cmd Cmd::fromJson(const json &obj, std::error_code &ec)
+Cmd Cmd::fromJson(const json &obj, error_code &ec)
 {
     Cmd cmd;
     try {
         cmd._cmd = obj.at("_Cmd__cmd");
     } catch (json::exception &e) {
-        ec = std::make_error_code(std::errc::invalid_argument);
+        ec = boost::system::errc::make_error_code(boost::system::errc::invalid_argument);
     }
     try {
         cmd._payload = obj.at("_Cmd__payload");
@@ -77,12 +77,12 @@ Response Response::fromJson(const json &obj) {
     return response;
 };
 
-Response Response::fromJson(const json &obj, std::error_code &ec) {
+Response Response::fromJson(const json &obj, error_code &ec) {
     Response response;
     try {
         response._error = obj.at("_Response__error");
     } catch (json::exception &e) {
-        ec = std::make_error_code(std::errc::invalid_argument);
+        ec = boost::system::errc::make_error_code(boost::system::errc::invalid_argument);
     };
     try {
         response._payload = obj.at("_Response__payload");

@@ -1,12 +1,12 @@
 #pragma once
-#include <asio.hpp>
+#include <boost/asio.hpp>
 #include <chrono>
 #include <kekmonitors/config.hpp>
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/msg.hpp>
 #include <spdlog/logger.h>
 
-using namespace asio;
+using namespace boost::asio;
 
 typedef std::function<void(const kekmonitors::Response &)> ResponseCallback;
 typedef std::function<void(const kekmonitors::Cmd &, ResponseCallback &&)>
@@ -24,15 +24,15 @@ class CmdConnection : public std::enable_shared_from_this<CmdConnection> {
     std::vector<char> _buffer;
     local::stream_protocol::socket _socket;
     steady_timer _timeout;
-    void onRead(const std::error_code &err, size_t read);
-    void onWrite(const std::error_code &err, size_t read);
+    void onRead(const error_code &err, size_t read);
+    void onWrite(const error_code &err, size_t read);
 
   public:
     CmdConnection(io_context &io, UnixServer &server);
     ~CmdConnection();
     static std::shared_ptr<CmdConnection> create(io_context &io, UnixServer &server);
     void asyncRead();
-    void onTimeout(const std::error_code &err);
+    void onTimeout(const error_code &err);
     local::stream_protocol::socket &getSocket();
 };
 
@@ -49,7 +49,7 @@ class UnixServer {
     CallbackMap _callbacks{};
 
   private:
-    void onConnect(const std::error_code &err,
+    void onConnect(const error_code &err,
                    std::shared_ptr<CmdConnection> &connection);
     void _handleCallback(const Cmd &cmd, ResponseCallback &&responseCallback);
 

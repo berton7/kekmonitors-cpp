@@ -4,6 +4,8 @@
 #include <kekmonitors/server.hpp>
 #include <kekmonitors/utils.hpp>
 
+using namespace boost::asio;
+
 namespace kekmonitors {
 CmdConnection::CmdConnection(io_context &io, UnixServer &server)
     : _io(io), _server(server), _buffer(1024), _socket(io), _timeout(io){
@@ -17,7 +19,7 @@ CmdConnection::~CmdConnection() {
     _timeout.cancel();
 };
 
-void CmdConnection::onTimeout(const std::error_code &err) {
+void CmdConnection::onTimeout(const error_code &err) {
     if (err) {
         if (err != error::operation_aborted) {
             KDBG(err.message());
@@ -31,18 +33,18 @@ void CmdConnection::onTimeout(const std::error_code &err) {
 
 local::stream_protocol::socket &CmdConnection::getSocket() { return _socket; }
 
-void CmdConnection::onRead(const std::error_code &err, size_t read) {
-    if (!err || err == asio::error::eof) {
+void CmdConnection::onRead(const error_code &err, size_t read) {
+    if (!err || err == error::eof) {
         _timeout.cancel();
         try {
             auto j = json::parse(_buffer);
-            std::error_code ec;
+            error_code ec;
             auto cmd = Cmd::fromJson(j, ec);
             if (!ec) {
                 auto shared = shared_from_this();
-                asio::defer(_io, [cmd, shared](){
+                defer(_io, [cmd, shared](){
                     shared->_server._handleCallback(cmd, [cmd, shared](const Response &response){
-                        async_write(shared->_socket, asio::buffer(response.toString()),
+                        async_write(shared->_socket, buffer(response.toString()),
                                     std::bind(&CmdConnection::onWrite,
                                               shared, std::placeholders::_1,
                                               std::placeholders::_2));
@@ -56,7 +58,7 @@ void CmdConnection::onRead(const std::error_code &err, size_t read) {
         } catch (std::exception &e) {
             KDBG(e.what());
         }
-    } else if (err && err != asio::error::operation_aborted) {
+    } else if (err && err != error::operation_aborted) {
         KDBG(err.message());
     }
 };
@@ -70,10 +72,11 @@ void CmdConnection::asyncRead() {
     _timeout.expires_after(std::chrono::seconds(1));
     _timeout.async_wait(
         std::bind(&CmdConnection::onTimeout, this, std::placeholders::_1));
-    async_read(_socket, asio::buffer(_buffer),
+    async_read(_socket, buffer(_buffer),
                std::bind(&CmdConnection::onRead, shared_from_this(),
                          std::placeholders::_1, std::placeholders::_2));
 }
+
 void CmdConnection::onWrite(const error_code &err, size_t read) {
     if (err)
         KDBG(err.message());
@@ -128,12 +131,12 @@ void UnixServer::startAccepting() {
                                       std::placeholders::_1, connection));
 };
 
-void UnixServer::onConnect(const std::error_code &err,
+void UnixServer::onConnect(const error_code &err,
                            std::shared_ptr<CmdConnection> &connection) {
     if (!err) {
         connection->asyncRead();
         startAccepting();
-    } else if (err != asio::error::operation_aborted)
+    } else if (err != error::operation_aborted)
         KDBG(err.message());
 }
 

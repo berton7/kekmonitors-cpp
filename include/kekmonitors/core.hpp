@@ -1,5 +1,6 @@
 #pragma once
 #include <boost/bimap.hpp>
+#include <kekmonitors/typedefs.hpp>
 
 #ifndef NDEBUG
 #define KEKMONITORS_DEBUG
@@ -17,9 +18,6 @@
 #define KEKMONITORS_FIRST_CUSTOM_ERROR (kekmonitors::ERRORS::UNKNOWN_ERROR + 1)
 
 namespace kekmonitors {
-
-typedef uint32_t CommandType;
-typedef uint32_t ErrorType;
 
 enum COMMANDS : CommandType {
     PING = 1,

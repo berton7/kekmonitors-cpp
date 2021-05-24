@@ -5,26 +5,31 @@ option(KEKMONITORS_SHARED_LIBS "Build kekmonitors shared or static" OFF)
 
 include(ExternalProject)
 
-ExternalProject_Add(spdlog
-    PREFIX spdlog
-    SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/spdlog
-    GIT_REPOSITORY https://github.com/gabime/spdlog.git
-    GIT_TAG v1.8.5
-    GIT_SHALLOW True
-    CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-    -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-    -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
-    -DCMAKE_INSTALL_PREFIX=${STAGING_DIR}
-    -DSPDLOG_MASTER_PROJECT=OFF
-    -DSPDLOG_BUILD_SHARED=OFF
-	INSTALL_COMMAND ""
+ExternalProject_Add(
+		spdlog
+		PREFIX spdlog
+		SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/spdlog
+		GIT_REPOSITORY https://github.com/gabime/spdlog.git
+		GIT_TAG v1.8.5
+		GIT_SHALLOW True
+		CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+		-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+		-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+		-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+		-DCMAKE_INSTALL_PREFIX=${STAGING_DIR}
+		-DSPDLOG_MASTER_PROJECT=OFF
+		-DSPDLOG_BUILD_SHARED=OFF
+		INSTALL_COMMAND ""
 )
 
-include_directories(${PROJECT_SOURCE_DIR}/deps/include)
-include_directories(${PROJECT_SOURCE_DIR}/include)
-
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system filesystem)
+find_package(libmongocxx REQUIRED)
+find_package(libbsoncxx REQUIRED)
+
+include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${PROJECT_SOURCE_DIR}/deps/include)
+include_directories(${LIBMONGOCXX_INCLUDE_DIRS})
+include_directories(${LIBBSONCXX_INCLUDE_DIRS})
 
 set(KEKMONITORS_SOURCE lib/monitormanager.cpp lib/msg.cpp lib/server.cpp lib/utils.cpp lib/config.cpp lib/core.cpp)
 set(KEKMONITORS_LIB_DEPS pthread Boost::system Boost::filesystem kekmonitors)
@@ -44,3 +49,6 @@ target_link_libraries(stopmm ${KEKMONITORS_LIB_DEPS})
 
 add_executable(cli bin/moman_cli.cpp)
 target_link_libraries(cli ${KEKMONITORS_LIB_DEPS})
+
+add_executable(mongotest bin/mongotest.cpp)
+target_link_libraries(mongotest ${LIBMONGOCXX_LIBRARIES})
