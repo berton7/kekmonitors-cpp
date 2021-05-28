@@ -100,7 +100,7 @@ boost::filesystem::path getPythonExecutable() {
             auto pythonPath = bp::search_path(possiblePythonPath);
             if (!pythonPath.empty()) {
                 bp::ipstream in;
-                bp::system(pythonPath, "--version", bp::std_out > in);
+                bp::system(pythonPath, "--version", bp::std_out > in, bp::std_err > bp::null);
                 // "Python 2.7.18"
                 // "Python 3.6.12"
                 std::string version;
