@@ -1,9 +1,13 @@
 #include <iostream>
+#include <bsoncxx/builder/basic/document.hpp>
+#include <bsoncxx/builder/basic/kvp.hpp>
+#include <bsoncxx/json.hpp>
 #include <kekmonitors/monitormanager.hpp>
 #include <kekmonitors/utils.hpp>
 
 using namespace boost::asio;
 using namespace boost::placeholders;
+using namespace bsoncxx::builder::basic;
 
 namespace kekmonitors {
 
@@ -12,6 +16,9 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
     if (!_config)
         _config = std::make_shared<Config>();
     _logger = utils::getLogger("MonitorManager");
+    _kekDbConnection = std::make_unique<mongocxx::client>(mongocxx::uri{_config->parser.get<std::string>("GlobalConfig.db_path")});
+    _kekDb = (*_kekDbConnection)[_config->parser.get<std::string>("GlobalConfig.db_name")];
+    _monitorRegisterDb = _kekDb["register.monitors"];
     _unixServer = std::make_unique<UnixServer>(
         io, "MonitorManager",
         CallbackMap{
@@ -73,7 +80,7 @@ void MonitorManager::onAddMonitor(const Cmd &cmd, const ResponseCallback &&cb) {
         cb(response);
         return;
     }
-    auto pythonExecutable = utils::getPythonExecutable();
+    const auto pythonExecutable = utils::getPythonExecutable();
     if (pythonExecutable.empty())
     {
         response.setError(ERRORS::MM_COULDNT_ADD_MONITOR);
@@ -84,30 +91,48 @@ void MonitorManager::onAddMonitor(const Cmd &cmd, const ResponseCallback &&cb) {
 
     // if we get here we can try to start the monitor
 
-    auto monitorProcess = std::make_shared<MonitorProcess>(className, pythonExecutable, "");
+    const auto optRegisteredMonitor = _monitorRegisterDb.find_one( make_document(kvp("name", className)));
+
+    if (!optRegisteredMonitor)
+    {
+         _logger->debug("Tried to add monitor {} but it was not registered", className);
+	 Response r;
+	 r.setError(ERRORS::MONITOR_NOT_REGISTERED);
+	 cb(r);
+	 return;
+    }
+
+    // insanity at its best!
+    const auto path = optRegisteredMonitor.value().view()["path"].get_utf8().value.to_string();
+    const auto monitorProcess = std::make_shared<MonitorProcess>(className, pythonExecutable, path, boost::process::std_out > boost::process::null, boost::process::std_err > boost::process::null);
     _tmpMonitorProcesses.insert({className, monitorProcess});
 
     auto delayTimer = std::make_shared<steady_timer>(_io, std::chrono::seconds(2));
 
     delayTimer->async_wait([this, delayTimer, monitorProcess, cb](const std::error_code &ec) {
-        auto &className = monitorProcess->getClassName();
+        const auto &className = monitorProcess->getClassName();
         _tmpMonitorProcesses.erase(className);
         if (ec)
         {
             _logger->error(ec.message());
             auto response = Response::badResponse();
-            response.setInfo("Internal status timer failed with message: " + ec.message());
+            const std::string msg{"Internal status timer failed with message: " + ec.message()};
+            response.setInfo(msg);
+            _logger->warn(msg);
             cb(response);
             return;
         }
         if (monitorProcess->getProcess().running()) {
             _monitorProcesses.insert({className, monitorProcess});
+            _logger->info("Correctly added Monitor " + monitorProcess->getClassName());
             cb(Response::okResponse());
             return;
         }
         Response response;
+        const std::string msg {"Monitor process exited too soon. Exit code: " + std::to_string(monitorProcess->getProcess().exit_code())};
         response.setError(ERRORS::MM_COULDNT_ADD_MONITOR);
-        response.setInfo("Monitor process exited too soon. Exit code: " + std::to_string(monitorProcess->getProcess().exit_code()));
+        response.setInfo(msg);
+        _logger->info(msg);
         cb(response);
     });
 }

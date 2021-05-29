@@ -1,4 +1,6 @@
 #pragma once
+#include <mongocxx/client.hpp>
+#include <mongocxx/instance.hpp>
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/msg.hpp>
 #include <kekmonitors/server.hpp>
@@ -8,9 +10,12 @@ namespace kekmonitors {
 class MonitorManager {
   private:
     io_context &_io;
-    std::unique_ptr<UnixServer> _unixServer=nullptr;
-    std::shared_ptr<Config> _config=nullptr;
+    std::unique_ptr<UnixServer> _unixServer = nullptr;
+    std::shared_ptr<Config> _config = nullptr;
     std::unique_ptr<spdlog::logger> _logger = nullptr;
+    std::unique_ptr<mongocxx::client> _kekDbConnection = nullptr;
+    mongocxx::database _kekDb {};
+    mongocxx::collection _monitorRegisterDb {};
     std::unordered_map<std::string, std::shared_ptr<MonitorProcess>> _monitorProcesses {};
     std::unordered_map<std::string, std::shared_ptr<MonitorProcess>> _tmpMonitorProcesses {};
 

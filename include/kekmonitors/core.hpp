@@ -1,5 +1,6 @@
 #pragma once
 #include <boost/bimap.hpp>
+#include <mongocxx/instance.hpp>
 #include <kekmonitors/typedefs.hpp>
 
 #ifndef NDEBUG
@@ -109,4 +110,5 @@ CommandStringMap &commandStringMap();
 ErrorStringMap &errorStringMap();
 
 void init();
+mongocxx::instance &initDbInstance();
 } // namespace kekmonitors

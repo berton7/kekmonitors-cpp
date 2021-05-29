@@ -104,6 +104,7 @@ void initMaps() {
 
 void init() {
     initMaps();
+    initDbInstance();
 #ifdef KEKMONITORS_DEBUG
     initDebugLogger();
 #endif
@@ -119,5 +120,11 @@ ErrorStringMap &errorStringMap()
 {
     static ErrorStringMap map;
     return map;
+}
+
+mongocxx::instance &initDbInstance()
+{
+    static mongocxx::instance instance;
+    return instance;
 }
 } // namespace kekmonitors
