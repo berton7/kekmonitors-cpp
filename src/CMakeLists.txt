@@ -32,7 +32,7 @@ include_directories(${LIBMONGOCXX_INCLUDE_DIRS})
 include_directories(${LIBBSONCXX_INCLUDE_DIRS})
 
 set(KEKMONITORS_SOURCE lib/monitormanager.cpp lib/msg.cpp lib/server.cpp lib/utils.cpp lib/config.cpp lib/core.cpp)
-set(KEKMONITORS_LIB_DEPS pthread Boost::system Boost::filesystem kekmonitors)
+set(KEKMONITORS_LIB_DEPS kekmonitors pthread Boost::system Boost::filesystem ${LIBMONGOCXX_LIBRARIES})
 
 if (KEKMONITORS_SHARED_LIBS)
 	add_library(kekmonitors SHARED ${KEKMONITORS_SOURCE})
@@ -49,6 +49,3 @@ target_link_libraries(stopmm ${KEKMONITORS_LIB_DEPS})
 
 add_executable(cli bin/moman_cli.cpp)
 target_link_libraries(cli ${KEKMONITORS_LIB_DEPS})
-
-add_executable(mongotest bin/mongotest.cpp)
-target_link_libraries(mongotest ${LIBMONGOCXX_LIBRARIES})
