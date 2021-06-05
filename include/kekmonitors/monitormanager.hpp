@@ -1,10 +1,10 @@
 #pragma once
-#include <mongocxx/client.hpp>
-#include <mongocxx/instance.hpp>
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/msg.hpp>
-#include <kekmonitors/server.hpp>
 #include <kekmonitors/process.hpp>
+#include <kekmonitors/server.hpp>
+#include <mongocxx/client.hpp>
+#include <mongocxx/instance.hpp>
 
 namespace kekmonitors {
 class MonitorManager {
@@ -14,18 +14,71 @@ class MonitorManager {
     std::shared_ptr<Config> _config = nullptr;
     std::unique_ptr<spdlog::logger> _logger = nullptr;
     std::unique_ptr<mongocxx::client> _kekDbConnection = nullptr;
-    mongocxx::database _kekDb {};
-    mongocxx::collection _monitorRegisterDb {};
-    std::unordered_map<std::string, std::shared_ptr<MonitorProcess>> _monitorProcesses {};
-    std::unordered_map<std::string, std::shared_ptr<MonitorProcess>> _tmpMonitorProcesses {};
+    mongocxx::database _kekDb{};
+    mongocxx::collection _monitorRegisterDb{};
+    mongocxx::collection _scraperRegisterDb{};
+    std::unordered_map<std::string, std::shared_ptr<Process>>
+        _monitorProcesses{};
+    std::unordered_map<std::string, std::shared_ptr<Process>>
+        _tmpMonitorProcesses{};
+    std::unordered_map<std::string, std::shared_ptr<Process>>
+        _scraperProcesses{};
+    std::unordered_map<std::string, std::shared_ptr<Process>>
+        _tmpScraperProcesses{};
 
   public:
     MonitorManager() = delete;
-    explicit MonitorManager(boost::asio::io_context &io, std::shared_ptr<Config> config = nullptr);
+    MonitorManager(boost::asio::io_context &io,
+                   std::shared_ptr<Config> config = nullptr);
     ~MonitorManager();
     void shutdown(const Cmd &cmd, const ResponseCallback &&cb);
     void onPing(const Cmd &cmd, const ResponseCallback &&cb);
-    void onAddMonitor(const Cmd &cmd, const ResponseCallback &&cb);
-    void onGetMonitorStatus(const Cmd &cmd, const ResponseCallback &&cb);
+    void onAdd(MonitorOrScraper m, const Cmd &cmd, const ResponseCallback &&cb);
+    void onAddMonitorScraper(const Cmd &cmd, const ResponseCallback &&cb,
+                             std::shared_ptr<CmdConnection> connection);
+    void onGetStatus(MonitorOrScraper m, const Cmd &cmd,
+                     const ResponseCallback &&cb);
+    void onGetMonitorScraperStatus(const Cmd &cmd, const ResponseCallback &&cb,
+                                   std::shared_ptr<CmdConnection> connection);
+};
+
+typedef std::function<void(MonitorManager *, MonitorOrScraper m, const Cmd &cmd,
+                           const ResponseCallback &&cb)>
+    MonitorManagerCallback;
+typedef std::function<void(const kekmonitors::Response &,
+                           const kekmonitors::Response &)>
+    DoubleResponseCallback;
+
+class MonitorScraperCompletion
+    : public std::enable_shared_from_this<MonitorScraperCompletion> {
+
+  private:
+    bool _bothCompleted{false};
+    io_service &_io;
+    const Cmd _cmd;
+    const DoubleResponseCallback _completionCb;
+    const MonitorManagerCallback _momanCb;
+    MonitorManager *_moman;
+    const std::shared_ptr<CmdConnection> _connection;
+    Response _firstResponse;
+
+  public:
+    MonitorScraperCompletion() = delete;
+    MonitorScraperCompletion(io_service &io, MonitorManager *moman, Cmd cmd,
+                             MonitorManagerCallback &&momanCb,
+                             DoubleResponseCallback &&completionCb,
+                             std::shared_ptr<CmdConnection> connection);
+
+    ~MonitorScraperCompletion();
+
+    void run();
+
+    static void create(io_service &io, MonitorManager *moman, const Cmd &cmd,
+                       MonitorManagerCallback &&momanCb,
+                       DoubleResponseCallback &&completionCb,
+                       std::shared_ptr<CmdConnection> connection);
+
+  private:
+    void checkForCompletion(const Response &response);
 };
 } // namespace kekmonitors

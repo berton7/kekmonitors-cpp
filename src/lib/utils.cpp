@@ -100,13 +100,13 @@ boost::filesystem::path getPythonExecutable() {
             auto pythonPath = bp::search_path(possiblePythonPath);
             if (!pythonPath.empty()) {
                 bp::ipstream in;
-                bp::system(pythonPath, "--version", bp::std_out > in, bp::std_err > bp::null);
+                bp::system(pythonPath, "--version", bp::std_out > in,
+                           bp::std_err > bp::null);
                 // "Python 2.7.18"
                 // "Python 3.6.12"
                 std::string version;
                 std::getline(in, version);
-                if (version[7] == '3')
-                {
+                if (version[7] == '3') {
                     pythonExecutable = pythonPath;
                     return pythonExecutable;
                 }
@@ -114,5 +114,26 @@ boost::filesystem::path getPythonExecutable() {
         }
     }
     return pythonExecutable;
+}
+
+Response makeCommonResponse(const Response &firstResponse,
+                            const Response &secondResponse,
+                            const ERRORS commonError) {
+    Response finalResponse = Response::okResponse();
+    if (firstResponse.getError() || secondResponse.getError()) {
+        finalResponse.setError(commonError);
+        std::string info{};
+        for (const Response &response : {firstResponse, secondResponse}) {
+            if (response.getError()) {
+                info += errorToString(response.getError());
+                if (!response.getInfo().empty())
+                    info += ": " + response.getInfo() + " ";
+                else
+                    info += "; ";
+            }
+        }
+        finalResponse.setInfo(info);
+    }
+    return finalResponse;
 }
 } // namespace kekmonitors::utils

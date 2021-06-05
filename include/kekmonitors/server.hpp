@@ -8,14 +8,16 @@
 
 using namespace boost::asio;
 
+namespace kekmonitors {
+
+class UnixServer;
+class CmdConnection;
+
 typedef std::function<void(const kekmonitors::Response &)> ResponseCallback;
-typedef std::function<void(const kekmonitors::Cmd &, ResponseCallback &&)>
+typedef std::function<void(const kekmonitors::Cmd &, ResponseCallback &&,
+                           std::shared_ptr<CmdConnection>)>
     CmdCallback;
 typedef std::map<const kekmonitors::CommandType, CmdCallback> CallbackMap;
-
-
-namespace kekmonitors {
-class UnixServer;
 
 class CmdConnection : public std::enable_shared_from_this<CmdConnection> {
   private:
@@ -30,7 +32,8 @@ class CmdConnection : public std::enable_shared_from_this<CmdConnection> {
   public:
     CmdConnection(io_context &io, UnixServer &server);
     ~CmdConnection();
-    static std::shared_ptr<CmdConnection> create(io_context &io, UnixServer &server);
+    static std::shared_ptr<CmdConnection> create(io_context &io,
+                                                 UnixServer &server);
     void asyncRead();
     void onTimeout(const error_code &err);
     local::stream_protocol::socket &getSocket();
@@ -38,6 +41,7 @@ class CmdConnection : public std::enable_shared_from_this<CmdConnection> {
 
 class UnixServer {
     friend CmdConnection;
+
   private:
     std::unique_ptr<local::stream_protocol::acceptor> _acceptor = nullptr;
     std::string _serverPath{};
@@ -51,7 +55,8 @@ class UnixServer {
   private:
     void onConnect(const error_code &err,
                    std::shared_ptr<CmdConnection> &connection);
-    void _handleCallback(const Cmd &cmd, ResponseCallback &&responseCallback);
+    void _handleCallback(const Cmd &cmd, ResponseCallback &&responseCallback,
+                         std::shared_ptr<CmdConnection>);
 
   public:
     UnixServer(io_context &io, const std::string &socketName,

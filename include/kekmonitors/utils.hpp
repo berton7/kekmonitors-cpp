@@ -37,4 +37,8 @@ std::string getStringWithoutNamespaces(const std::string &command);
 std::string getStringWithoutNamespaces(CommandType command);
 
 boost::filesystem::path getPythonExecutable();
+
+Response makeCommonResponse(const Response &firstResponse,
+                            const Response &secondResponse,
+                            const ERRORS commonError = ERRORS::UNKNOWN_ERROR);
 } // namespace kekmonitors::utils

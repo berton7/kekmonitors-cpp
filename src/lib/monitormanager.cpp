@@ -1,9 +1,10 @@
-#include <iostream>
 #include <bsoncxx/builder/basic/document.hpp>
 #include <bsoncxx/builder/basic/kvp.hpp>
 #include <bsoncxx/json.hpp>
+#include <iostream>
 #include <kekmonitors/monitormanager.hpp>
 #include <kekmonitors/utils.hpp>
+#include <utility>
 
 using namespace boost::asio;
 using namespace boost::placeholders;
@@ -11,31 +12,103 @@ using namespace bsoncxx::builder::basic;
 
 namespace kekmonitors {
 
+MonitorScraperCompletion::MonitorScraperCompletion(
+    io_service &io, MonitorManager *moman, Cmd cmd,
+    MonitorManagerCallback &&momanCb, DoubleResponseCallback &&completionCb,
+    std::shared_ptr<CmdConnection> connection)
+    : _io(io), _cmd(std::move(cmd)), _completionCb(std::move(completionCb)),
+      _momanCb(std::move(momanCb)), _moman(moman),
+      _connection(std::move(connection)) {
+    KDBG("CTOR");
+};
+
+MonitorScraperCompletion::~MonitorScraperCompletion() { KDBG("dtor"); }
+
+void MonitorScraperCompletion::run() {
+    auto shared = shared_from_this();
+    post(_io, [shared] {
+        return shared->_momanCb(
+            shared->_moman, MonitorOrScraper::Monitor, shared->_cmd,
+            std::bind(&MonitorScraperCompletion::checkForCompletion, shared,
+                      std::placeholders::_1));
+    });
+    post(_io, [shared] {
+        return shared->_momanCb(
+            shared->_moman, MonitorOrScraper::Scraper, shared->_cmd,
+            std::bind(&MonitorScraperCompletion::checkForCompletion, shared,
+                      std::placeholders::_1));
+    });
+};
+
+void MonitorScraperCompletion::create(
+    io_service &io, MonitorManager *moman, const Cmd &cmd,
+    MonitorManagerCallback &&momanCb, DoubleResponseCallback &&completionCb,
+    std::shared_ptr<CmdConnection> connection) {
+    std::make_shared<MonitorScraperCompletion>(
+        io, moman, cmd, std::move(momanCb), std::move(completionCb),
+        std::move(connection))
+        ->run();
+}
+
+void MonitorScraperCompletion::checkForCompletion(const Response &response) {
+    if (!_bothCompleted) {
+        _bothCompleted = true;
+        _firstResponse = response;
+        return;
+    }
+    _completionCb(_firstResponse, response);
+}
+
 MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
     : _io(io), _config(std::move(config)) {
     if (!_config)
         _config = std::make_shared<Config>();
     _logger = utils::getLogger("MonitorManager");
-    _kekDbConnection = std::make_unique<mongocxx::client>(mongocxx::uri{_config->parser.get<std::string>("GlobalConfig.db_path")});
-    _kekDb = (*_kekDbConnection)[_config->parser.get<std::string>("GlobalConfig.db_name")];
+    _kekDbConnection = std::make_unique<mongocxx::client>(mongocxx::uri{
+        _config->parser.get<std::string>("GlobalConfig.db_path")});
+    _kekDb = (*_kekDbConnection)[_config->parser.get<std::string>(
+        "GlobalConfig.db_name")];
     _monitorRegisterDb = _kekDb["register.monitors"];
+    _scraperRegisterDb = _kekDb["register.scrapers"];
     _unixServer = std::make_unique<UnixServer>(
         io, "MonitorManager",
         CallbackMap{
             {COMMANDS::PING,
-             std::bind(&MonitorManager::onPing, this, std::placeholders::_1, std::placeholders::_2)},
+             std::bind(&MonitorManager::onPing, this, std::placeholders::_1,
+                       std::placeholders::_2)},
             {COMMANDS::MM_STOP_MONITOR_MANAGER,
              std::bind(&MonitorManager::shutdown, this, std::placeholders::_1,
                        std::placeholders::_2)},
-            {COMMANDS::MM_ADD_MONITOR, std::bind(&MonitorManager::onAddMonitor,
-                                                 this, std::placeholders::_1, std::placeholders::_2)},
+            {COMMANDS::MM_ADD_MONITOR,
+             std::bind(&MonitorManager::onAdd, this, MonitorOrScraper::Monitor,
+                       std::placeholders::_1, std::placeholders::_2)},
             {COMMANDS::MM_GET_MONITOR_STATUS,
-             std::bind(&MonitorManager::onGetMonitorStatus, this,
-                       std::placeholders::_1, std::placeholders::_2)}},
+             std::bind(&MonitorManager::onGetStatus, this,
+                       MonitorOrScraper::Monitor, std::placeholders::_1,
+                       std::placeholders::_2)},
+            {COMMANDS::MM_GET_SCRAPER_STATUS,
+             std::bind(&MonitorManager::onGetStatus, this,
+                       MonitorOrScraper::Scraper, std::placeholders::_1,
+                       std::placeholders::_2)},
+            {COMMANDS::MM_GET_MONITOR_SCRAPER_STATUS,
+             std::bind(&MonitorManager::onGetMonitorScraperStatus, this,
+                       std::placeholders::_1, std::placeholders::_2,
+                       std::placeholders::_3)},
+            {COMMANDS::MM_ADD_MONITOR_SCRAPER,
+             std::bind(&MonitorManager::onAddMonitorScraper, this,
+                       std::placeholders::_1, std::placeholders::_2,
+                       std::placeholders::_3)}},
         _config);
 }
 
 MonitorManager::~MonitorManager() = default;
+
+void MonitorManager::shutdown(const Cmd &cmd, const ResponseCallback &&cb) {
+    _logger->info("Shutting down...");
+    KDBG("Received shutdown");
+    _unixServer->shutdown();
+    cb(Response::okResponse());
+}
 
 void MonitorManager::onPing(const Cmd &cmd, const ResponseCallback &&cb) {
     _logger->info("onPing callback!");
@@ -44,10 +117,12 @@ void MonitorManager::onPing(const Cmd &cmd, const ResponseCallback &&cb) {
     cb(response);
 }
 
-void MonitorManager::onAddMonitor(const Cmd &cmd, const ResponseCallback &&cb) {
+void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
+                           const ResponseCallback &&cb) {
     Response response;
-
-    // various error checking
+    ERRORS genericError = m == MonitorOrScraper::Monitor
+                              ? ERRORS::MM_COULDNT_ADD_MONITOR
+                              : ERRORS::MM_COULDNT_ADD_SCRAPER;
 
     if (cmd.getPayload() == nullptr) {
         response.setError(ERRORS::MISSING_PAYLOAD);
@@ -56,109 +131,163 @@ void MonitorManager::onAddMonitor(const Cmd &cmd, const ResponseCallback &&cb) {
     }
 
     std::string className;
-    const auto &payload = cmd.getPayload();
+    const json &payload = cmd.getPayload();
 
     if (payload.find("name") != payload.end()) {
         className = payload.at("name");
-    }
-    else{
+    } else {
         response.setError(ERRORS::MISSING_PAYLOAD_ARGS);
-        response.setInfo("Missing payload arg: \"className\"");
+        response.setInfo("Missing payload arg: \"name\".");
         cb(response);
         return;
     }
-    if (_monitorProcesses.find(className) != _monitorProcesses.end()) {
-        response.setError(ERRORS::MM_COULDNT_ADD_MONITOR);
-        response.setInfo("Monitor already started.");
+
+    auto &processes =
+        m == MonitorOrScraper::Monitor ? _monitorProcesses : _scraperProcesses;
+    auto &tmpProcesses = m == MonitorOrScraper::Monitor ? _tmpMonitorProcesses
+                                                        : _tmpScraperProcesses;
+
+    if (processes.find(className) != _monitorProcesses.end()) {
+        response.setError(genericError);
+        response.setInfo(
+            std::string{
+                (m == MonitorOrScraper::Monitor ? "Monitor" : "Scraper")} +
+            " already started.");
         cb(response);
         return;
     }
-    else if (_tmpMonitorProcesses.find(className) != _monitorProcesses.end())
-    {
-        response.setError(ERRORS::MM_COULDNT_ADD_MONITOR);
-        response.setInfo("Monitor still being processed");
+
+    else if (tmpProcesses.find(className) != tmpProcesses.end()) {
+        response.setError(genericError);
+        response.setInfo(
+            std::string{
+                (m == MonitorOrScraper::Monitor ? "Monitor" : "Scraper")} +
+            " still being processed.");
         cb(response);
         return;
     }
+
     const auto pythonExecutable = utils::getPythonExecutable();
-    if (pythonExecutable.empty())
-    {
-        response.setError(ERRORS::MM_COULDNT_ADD_MONITOR);
-        response.setInfo("Could not find a correct python version");
+    if (pythonExecutable.empty()) {
+        response.setError(genericError);
+        response.setInfo("Could not find a correct python version.");
         cb(response);
         return;
     }
 
-    // if we get here we can try to start the monitor
+    auto &registerDb = m == MonitorOrScraper::Monitor ? _monitorRegisterDb
+                                                      : _scraperRegisterDb;
 
-    const auto optRegisteredMonitor = _monitorRegisterDb.find_one( make_document(kvp("name", className)));
+    const auto optRegisteredMonitor =
+        registerDb.find_one(make_document(kvp("name", className)));
 
-    if (!optRegisteredMonitor)
-    {
-         _logger->debug("Tried to add monitor {} but it was not registered", className);
-	 Response r;
-	 r.setError(ERRORS::MONITOR_NOT_REGISTERED);
-	 cb(r);
-	 return;
+    if (!optRegisteredMonitor) {
+        _logger->debug("Tried to add {} {} but it was not registered",
+                       m == MonitorOrScraper::Monitor ? "monitor" : "scraper",
+                       className);
+        response.setError(m == MonitorOrScraper::Monitor
+                              ? ERRORS::MONITOR_NOT_REGISTERED
+                              : ERRORS::SCRAPER_NOT_REGISTERED);
+        cb(response);
+        return;
     }
 
     // insanity at its best!
-    const auto path = optRegisteredMonitor.value().view()["path"].get_utf8().value.to_string();
-    const auto monitorProcess = std::make_shared<MonitorProcess>(className, pythonExecutable, path, boost::process::std_out > boost::process::null, boost::process::std_err > boost::process::null);
-    _tmpMonitorProcesses.insert({className, monitorProcess});
+    const auto path = optRegisteredMonitor.value()
+                          .view()["path"]
+                          .get_utf8()
+                          .value.to_string();
+    const auto process = std::make_shared<Process>(
+        className, pythonExecutable, path,
+        boost::process::std_out > boost::process::null,
+        boost::process::std_err > boost::process::null);
+    tmpProcesses.insert({className, process});
 
-    auto delayTimer = std::make_shared<steady_timer>(_io, std::chrono::seconds(2));
+    auto delayTimer =
+        std::make_shared<steady_timer>(_io, std::chrono::seconds(2));
 
-    delayTimer->async_wait([this, delayTimer, monitorProcess, cb](const std::error_code &ec) {
-        const auto &className = monitorProcess->getClassName();
-        _tmpMonitorProcesses.erase(className);
-        if (ec)
-        {
+    delayTimer->async_wait([this, m, genericError, delayTimer, process,
+                            cb](const std::error_code &ec) {
+        const std::string &className = process->getClassName();
+        auto &tmpProcesses = m == MonitorOrScraper::Monitor
+                                 ? _tmpMonitorProcesses
+                                 : _tmpScraperProcesses;
+        tmpProcesses.erase("");
+        if (ec) {
             _logger->error(ec.message());
-            auto response = Response::badResponse();
-            const std::string msg{"Internal status timer failed with message: " + ec.message()};
+            Response response{Response::badResponse()};
+            const std::string msg{"Internal timer failed with message: " +
+                                  ec.message()};
             response.setInfo(msg);
             _logger->warn(msg);
             cb(response);
             return;
         }
-        if (monitorProcess->getProcess().running()) {
-            _monitorProcesses.insert({className, monitorProcess});
-            _logger->info("Correctly added Monitor " + monitorProcess->getClassName());
+        if (process->getProcess().running()) {
+            auto &_processes = m == MonitorOrScraper::Monitor
+                                   ? _monitorProcesses
+                                   : _scraperProcesses;
+            _processes.insert({className, process});
+            _logger->info("Correctly added {} {}",
+                          m == MonitorOrScraper::Monitor ? "monitor "
+                                                         : "scraper ",
+                          process->getClassName());
             cb(Response::okResponse());
             return;
         }
         Response response;
-        const std::string msg {"Monitor process exited too soon. Exit code: " + std::to_string(monitorProcess->getProcess().exit_code())};
-        response.setError(ERRORS::MM_COULDNT_ADD_MONITOR);
+        const std::string msg{
+            "Process exited too soon. Exit code: " +
+            std::to_string(process->getProcess().exit_code()) + "."};
+        response.setError(genericError);
         response.setInfo(msg);
         _logger->info(msg);
         cb(response);
     });
 }
 
-void MonitorManager::onGetMonitorStatus(const Cmd &cmd,
-                                            const ResponseCallback &&cb) {
+void MonitorManager::onAddMonitorScraper(
+    const Cmd &cmd, const ResponseCallback &&cb,
+    std::shared_ptr<CmdConnection> connection) {
+    MonitorScraperCompletion::create(
+        _io, this, cmd, &MonitorManager::onAdd,
+        [cb](const Response &firstResponse, const Response &secondResponse) {
+            cb(utils::makeCommonResponse(
+                firstResponse, secondResponse,
+                ERRORS::MM_COULDNT_ADD_MONITOR_SCRAPER));
+        },
+        std::move(connection));
+}
+
+void MonitorManager::onGetStatus(const MonitorOrScraper m, const Cmd &cmd,
+                                 const ResponseCallback &&cb) {
     Response response;
-    if (!_monitorProcesses.empty() /* && !_scraperProcesses.empty()*/) {
-        json payload;
-        if (!_monitorProcesses.empty()) {
-            json monitoredProcesses;
-            for (const auto &monitorProcess : _monitorProcesses) {
-                monitoredProcesses.push_back(monitorProcess.second->toJson());
-            }
-            payload["monitored_processes"] = monitoredProcesses;
+    std::unordered_map<std::string, std::shared_ptr<Process>> &processes =
+        m == MonitorOrScraper::Monitor ? _monitorProcesses : _scraperProcesses;
+    json payload;
+    if (!processes.empty()) {
+        json monitoredProcesses;
+        for (const auto &process : processes) {
+            monitoredProcesses.push_back(process.second->toJson());
         }
-        // TODO: add _scraperProcesses
-        response.setPayload(payload);
+        payload["monitored_processes"] = monitoredProcesses;
     }
+    response.setPayload(payload);
     cb(response);
 }
 
-void MonitorManager::shutdown(const Cmd &cmd, const ResponseCallback &&cb) {
-    _logger->info("Shutting down...");
-    KDBG("Received shutdown");
-    _unixServer->shutdown();
-    cb(Response::okResponse());
+void MonitorManager::onGetMonitorScraperStatus(
+    const Cmd &cmd, const ResponseCallback &&cb,
+    std::shared_ptr<CmdConnection> connection) {
+    MonitorScraperCompletion::create(
+        _io, this, cmd, &MonitorManager::onGetStatus,
+        [cb](const Response &firstResponse, const Response &secondResponse) {
+            Response response{
+                utils::makeCommonResponse(firstResponse, secondResponse)};
+            response.setPayload({{"monitors", firstResponse.getPayload()},
+                                 {"scrapers", secondResponse.getPayload()}});
+            cb(response);
+        },
+        std::move(connection));
 }
 } // namespace kekmonitors

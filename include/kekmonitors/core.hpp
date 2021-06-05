@@ -1,7 +1,7 @@
 #pragma once
 #include <boost/bimap.hpp>
-#include <mongocxx/instance.hpp>
 #include <kekmonitors/typedefs.hpp>
+#include <mongocxx/instance.hpp>
 
 #ifndef NDEBUG
 #define KEKMONITORS_DEBUG
@@ -100,6 +100,8 @@ enum ERRORS : ErrorType {
     OTHER_ERROR,
     UNKNOWN_ERROR
 };
+
+enum class MonitorOrScraper { Monitor = 0, Scraper };
 
 typedef boost::bimap<CommandType, std::string> CommandStringMap;
 typedef CommandStringMap::value_type CommandStringValue;

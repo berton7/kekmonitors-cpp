@@ -27,13 +27,11 @@ class Process {
             const boost::filesystem::path &monitorExecutablePath, Args... args)
         : _className(std::move(className)),
           _process(pythonExecutablePath, monitorExecutablePath, args...),
-          _creation(std::time(nullptr)){
-              KDBG("Constructed process");
-          };
+          _creation(std::time(nullptr)) {
+        KDBG("Constructed process");
+    };
 
-    ~Process(){
-        KDBG("Destroyed process");
-    }
+    ~Process() { KDBG("Destroyed process"); }
 
     std::time_t getCreation() const { return _creation; };
     boost::process::child &getProcess() { return _process; };
@@ -41,11 +39,6 @@ class Process {
         return {
             {_className, {{"Started at", _creation}, {"PID", _process.id()}}}};
     };
-    const std::string &getClassName() const{
-        return _className;
-    }
+    const std::string &getClassName() const { return _className; }
 };
-
-typedef Process MonitorProcess;
-typedef Process ScraperProcess;
 } // namespace kekmonitors

@@ -3,12 +3,13 @@
 #include <kekmonitors/msg.hpp>
 #include <kekmonitors/server.hpp>
 #include <kekmonitors/utils.hpp>
+#include <utility>
 
 using namespace boost::asio;
 
 namespace kekmonitors {
 CmdConnection::CmdConnection(io_context &io, UnixServer &server)
-    : _io(io), _server(server), _buffer(1024), _socket(io), _timeout(io){
+    : _io(io), _server(server), _buffer(1024), _socket(io), _timeout(io) {
     KDBG("Allocating new connection");
 };
 
@@ -42,18 +43,21 @@ void CmdConnection::onRead(const error_code &err, size_t read) {
             auto cmd = Cmd::fromJson(j, ec);
             if (!ec) {
                 auto shared = shared_from_this();
-                defer(_io, [cmd, shared](){
-                    shared->_server._handleCallback(cmd, [cmd, shared](const Response &response){
-                        async_write(shared->_socket, buffer(response.toString()),
-                                    std::bind(&CmdConnection::onWrite,
-                                              shared, std::placeholders::_1,
-                                              std::placeholders::_2));
-                    });
-
+                defer(_io, [cmd, shared]() {
+                    shared->_server._handleCallback(
+                        cmd,
+                        [cmd, shared](const Response &response) {
+                            async_write(shared->_socket,
+                                        buffer(response.toString()),
+                                        std::bind(&CmdConnection::onWrite,
+                                                  shared, std::placeholders::_1,
+                                                  std::placeholders::_2));
+                        },
+                        shared);
                 });
             } else {
                 KDBG("Received connection but couldn't parse from json: " +
-                      std::string(_buffer.data()));
+                     std::string(_buffer.data()));
             }
         } catch (std::exception &e) {
             KDBG(e.what());
@@ -63,9 +67,9 @@ void CmdConnection::onRead(const error_code &err, size_t read) {
     }
 };
 
-std::shared_ptr<CmdConnection> CmdConnection::create(io_context &io, UnixServer &server) {
-    return std::make_shared<CmdConnection>(
-        io, server); // ???
+std::shared_ptr<CmdConnection> CmdConnection::create(io_context &io,
+                                                     UnixServer &server) {
+    return std::make_shared<CmdConnection>(io, server); // ???
 }
 
 void CmdConnection::asyncRead() {
@@ -124,8 +128,7 @@ UnixServer::~UnixServer() {
 };
 
 void UnixServer::startAccepting() {
-    auto connection =
-        CmdConnection::create(_io, *this);
+    auto connection = CmdConnection::create(_io, *this);
     _acceptor->async_accept(connection->getSocket(),
                             std::bind(&UnixServer::onConnect, this,
                                       std::placeholders::_1, connection));
@@ -141,16 +144,18 @@ void UnixServer::onConnect(const error_code &err,
 }
 
 void UnixServer::_handleCallback(const Cmd &cmd,
-                                 ResponseCallback &&responseCallback) {
+                                 ResponseCallback &&responseCallback,
+                                 std::shared_ptr<CmdConnection> connection) {
     auto command = static_cast<uint32_t>(cmd.getCmd());
     try {
         _logger->info("Received cmd " + utils::commandToString(cmd.getCmd()));
-    } catch(std::out_of_range &)
-    {
-        _logger->info("Received cmd " + std::to_string(static_cast<uint32_t>(cmd.getCmd())));
+    } catch (std::out_of_range &) {
+        _logger->info("Received cmd " +
+                      std::to_string(static_cast<uint32_t>(cmd.getCmd())));
     }
     try {
-        _callbacks.at(cmd.getCmd())(cmd, std::move(responseCallback));
+        _callbacks.at(cmd.getCmd())(cmd, std::move(responseCallback),
+                                    std::move(connection));
     } catch (std::out_of_range &e) {
         _logger->warn("Cmd " + std::to_string(command) + " was not registered");
         Response resp;
