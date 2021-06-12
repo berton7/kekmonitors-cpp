@@ -64,12 +64,34 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
     if (!_config)
         _config = std::make_shared<Config>();
     _logger = utils::getLogger("MonitorManager");
+    _fileWatcher.watches.emplace_back(
+        _config->parser.get<std::string>("GlobalConfig.socket_path"),
+        IN_ALL_EVENTS);
+    _fileWatcher.inotify.Add(_fileWatcher.watches[0]);
+    _fileWatcher.watchThread = std::thread([&] {
+        while (!_fileWatcherStop) {
+            _fileWatcher.inotify.WaitForEvents();
+            size_t count = _fileWatcher.inotify.GetEventCount();
+            while (count-- > 0) {
+                InotifyEvent event;
+                bool got_event = _fileWatcher.inotify.GetEvent(&event);
+                if (got_event) {
+                    _fileWatcher.eventQueue.emplace_back(std::move(event));
+                    _fileWatcherAddEvent = true;
+                }
+            }
+        }
+    });
     _kekDbConnection = std::make_unique<mongocxx::client>(mongocxx::uri{
         _config->parser.get<std::string>("GlobalConfig.db_path")});
     _kekDb = (*_kekDbConnection)[_config->parser.get<std::string>(
         "GlobalConfig.db_name")];
     _monitorRegisterDb = _kekDb["register.monitors"];
     _scraperRegisterDb = _kekDb["register.scrapers"];
+#ifdef KEKMONITORS_DEBUG
+    ::unlink(std::string{utils::getLocalKekDir() + "/sockets/MonitorManager"}
+                 .c_str());
+#endif
     _unixServer = std::make_unique<UnixServer>(
         io, "MonitorManager",
         CallbackMap{
@@ -101,11 +123,12 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
         _config);
 }
 
-MonitorManager::~MonitorManager() = default;
+MonitorManager::~MonitorManager() { _fileWatcher.watchThread.join(); }
 
 void MonitorManager::shutdown(const Cmd &cmd, const ResponseCallback &&cb) {
     _logger->info("Shutting down...");
     KDBG("Received shutdown");
+    _fileWatcherStop = true;
     _unixServer->shutdown();
     cb(Response::okResponse());
 }
@@ -290,4 +313,43 @@ void MonitorManager::onGetMonitorScraperStatus(
         },
         std::move(connection));
 }
+void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
+                            const kekmonitors::ResponseCallback &&cb) {
+    Response response;
+
+    if (cmd.getPayload() == nullptr) {
+        response.setError(ERRORS::MISSING_PAYLOAD);
+        cb(response);
+        return;
+    }
+
+    std::string className;
+    const json &payload = cmd.getPayload();
+
+    if (payload.find("name") != payload.end()) {
+        className = payload.at("name");
+    } else {
+        response.setError(ERRORS::MISSING_PAYLOAD_ARGS);
+        response.setInfo("Missing payload arg: \"name\".");
+        cb(response);
+        return;
+    }
+
+    auto &processes =
+        m == MonitorOrScraper::Monitor ? _monitorProcesses : _scraperProcesses;
+
+    if (processes.find(className) == processes.end()) {
+        response.setError(ERRORS::MM_COULDNT_STOP_MONITOR);
+        response.setInfo(std::string{m == MonitorOrScraper::Monitor
+                                         ? "Monitor"
+                                         : "Scraper"} +
+                         " was never started.");
+        cb(response);
+        return;
+    }
+}
+
+void MonitorManager::onStopMonitorScraper(
+    const Cmd &cmd, const ResponseCallback &&cb,
+    std::shared_ptr<CmdConnection> connection) {}
 } // namespace kekmonitors

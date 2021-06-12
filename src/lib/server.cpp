@@ -14,10 +14,10 @@ CmdConnection::CmdConnection(io_context &io, UnixServer &server)
 };
 
 CmdConnection::~CmdConnection() {
-    KDBG("Destroying connection");
     if (_socket.is_open())
         _socket.close();
     _timeout.cancel();
+    KDBG("Connection destroyed");
 };
 
 void CmdConnection::onTimeout(const error_code &err) {
@@ -122,10 +122,7 @@ UnixServer::UnixServer(io_context &io, const std::string &socketName,
     startAccepting();
 }
 
-UnixServer::~UnixServer() {
-    _logger->info("Closing server");
-    ::unlink(_serverPath.c_str());
-};
+UnixServer::~UnixServer(){};
 
 void UnixServer::startAccepting() {
     auto connection = CmdConnection::create(_io, *this);
@@ -164,5 +161,9 @@ void UnixServer::_handleCallback(const Cmd &cmd,
     }
 }
 
-void UnixServer::shutdown() { _acceptor->close(); }
+void UnixServer::shutdown() {
+    _logger->info("Closing server");
+    _acceptor->close();
+    ::unlink(_serverPath.c_str());
+}
 } // namespace kekmonitors

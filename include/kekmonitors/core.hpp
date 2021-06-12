@@ -1,10 +1,21 @@
 #pragma once
 #include <boost/bimap.hpp>
+#include <inotify-cxx.h>
 #include <kekmonitors/typedefs.hpp>
 #include <mongocxx/instance.hpp>
+#include <spdlog/spdlog.h>
 
 #ifndef NDEBUG
 #define KEKMONITORS_DEBUG
+#endif
+
+#ifdef KEKMONITORS_DEBUG
+#define KDBG(x)                                                                \
+    do {                                                                       \
+        spdlog::get("KDBG")->debug("[{}] {}", __FUNCTION__, x);                \
+    } while (0)
+#else
+#define KDBG(x)
 #endif
 
 #define REGISTER_COMMAND(cmd)                                                  \

@@ -7,16 +7,28 @@
 #include <mongocxx/instance.hpp>
 
 namespace kekmonitors {
+
+typedef struct {
+    Inotify inotify;
+    std::vector<InotifyWatch> watches;
+    std::thread watchThread;
+    std::deque<InotifyEvent> eventQueue;
+} FileWatcher;
+
 class MonitorManager {
   private:
     io_context &_io;
-    std::unique_ptr<UnixServer> _unixServer = nullptr;
-    std::shared_ptr<Config> _config = nullptr;
-    std::unique_ptr<spdlog::logger> _logger = nullptr;
-    std::unique_ptr<mongocxx::client> _kekDbConnection = nullptr;
+    std::unique_ptr<UnixServer> _unixServer{nullptr};
+    std::shared_ptr<Config> _config{nullptr};
+    std::unique_ptr<spdlog::logger> _logger{nullptr};
+    std::unique_ptr<mongocxx::client> _kekDbConnection{nullptr};
     mongocxx::database _kekDb{};
     mongocxx::collection _monitorRegisterDb{};
     mongocxx::collection _scraperRegisterDb{};
+    std::mutex _fileWatcherLock;
+    std::atomic<bool> _fileWatcherStop{false};
+    std::atomic<bool> _fileWatcherAddEvent{false};
+    FileWatcher _fileWatcher;
     std::unordered_map<std::string, std::shared_ptr<Process>>
         _monitorProcesses{};
     std::unordered_map<std::string, std::shared_ptr<Process>>
@@ -28,14 +40,18 @@ class MonitorManager {
 
   public:
     MonitorManager() = delete;
-    MonitorManager(boost::asio::io_context &io,
-                   std::shared_ptr<Config> config = nullptr);
+    explicit MonitorManager(boost::asio::io_context &io,
+                            std::shared_ptr<Config> config = nullptr);
     ~MonitorManager();
     void shutdown(const Cmd &cmd, const ResponseCallback &&cb);
     void onPing(const Cmd &cmd, const ResponseCallback &&cb);
     void onAdd(MonitorOrScraper m, const Cmd &cmd, const ResponseCallback &&cb);
     void onAddMonitorScraper(const Cmd &cmd, const ResponseCallback &&cb,
                              std::shared_ptr<CmdConnection> connection);
+    void onStop(MonitorOrScraper m, const Cmd &cmd,
+                const ResponseCallback &&cb);
+    void onStopMonitorScraper(const Cmd &cmd, const ResponseCallback &&cb,
+                              std::shared_ptr<CmdConnection> connection);
     void onGetStatus(MonitorOrScraper m, const Cmd &cmd,
                      const ResponseCallback &&cb);
     void onGetMonitorScraperStatus(const Cmd &cmd, const ResponseCallback &&cb,

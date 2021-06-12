@@ -7,15 +7,6 @@
 #include <spdlog/spdlog.h>
 #include <string>
 
-#ifdef KEKMONITORS_DEBUG
-#define KDBG(x)                                                                \
-    do {                                                                       \
-        spdlog::get("KDBG")->debug("[{}] {}", __FUNCTION__, x);                \
-    } while (0)
-#else
-#define KDBG(x)
-#endif
-
 namespace kekmonitors::utils {
 
 kekmonitors::CommandType stringToCommand(const std::string &);
