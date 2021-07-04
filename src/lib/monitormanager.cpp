@@ -64,24 +64,6 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
     if (!_config)
         _config = std::make_shared<Config>();
     _logger = utils::getLogger("MonitorManager");
-    _fileWatcher.watches.emplace_back(
-        _config->parser.get<std::string>("GlobalConfig.socket_path"),
-        IN_ALL_EVENTS);
-    _fileWatcher.inotify.Add(_fileWatcher.watches[0]);
-    _fileWatcher.watchThread = std::thread([&] {
-        while (!_fileWatcherStop) {
-            _fileWatcher.inotify.WaitForEvents();
-            size_t count = _fileWatcher.inotify.GetEventCount();
-            while (count-- > 0) {
-                InotifyEvent event;
-                bool got_event = _fileWatcher.inotify.GetEvent(&event);
-                if (got_event) {
-                    _fileWatcher.eventQueue.emplace_back(std::move(event));
-                    _fileWatcherAddEvent = true;
-                }
-            }
-        }
-    });
     _kekDbConnection = std::make_unique<mongocxx::client>(mongocxx::uri{
         _config->parser.get<std::string>("GlobalConfig.db_path")});
     _kekDb = (*_kekDbConnection)[_config->parser.get<std::string>(
@@ -121,6 +103,24 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
                        std::placeholders::_1, std::placeholders::_2,
                        std::placeholders::_3)}},
         _config);
+    _fileWatcher.watches.emplace_back(
+        _config->parser.get<std::string>("GlobalConfig.socket_path"),
+        IN_ALL_EVENTS);
+    _fileWatcher.inotify.Add(_fileWatcher.watches[0]);
+    _fileWatcher.watchThread = std::thread([&] {
+        while (!_fileWatcherStop) {
+            _fileWatcher.inotify.WaitForEvents();
+            size_t count = _fileWatcher.inotify.GetEventCount();
+            while (count-- > 0) {
+                InotifyEvent event;
+                bool got_event = _fileWatcher.inotify.GetEvent(&event);
+                if (got_event) {
+                    _fileWatcher.eventQueue.emplace_back(std::move(event));
+                    _fileWatcherAddEvent = true;
+                }
+            }
+        }
+    });
 }
 
 MonitorManager::~MonitorManager() { _fileWatcher.watchThread.join(); }
