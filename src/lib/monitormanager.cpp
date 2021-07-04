@@ -172,7 +172,7 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
     auto &tmpProcesses = m == MonitorOrScraper::Monitor ? _tmpMonitorProcesses
                                                         : _tmpScraperProcesses;
 
-    if (processes.find(className) != _monitorProcesses.end()) {
+    if (processes.find(className) != processes.end()) {
         response.setError(genericError);
         response.setInfo(
             std::string{
