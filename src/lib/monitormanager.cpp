@@ -71,6 +71,8 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
     _monitorRegisterDb = _kekDb["register.monitors"];
     _scraperRegisterDb = _kekDb["register.scrapers"];
 #ifdef KEKMONITORS_DEBUG
+    KDBG("Removing leftover monitor manager socket. Beware this is a "
+         "debug-only feature.");
     ::unlink(std::string{utils::getLocalKekDir() + "/sockets/MonitorManager"}
                  .c_str());
 #endif
