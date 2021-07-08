@@ -4,6 +4,7 @@
 #include <iostream>
 #include <kekmonitors/monitormanager.hpp>
 #include <kekmonitors/utils.hpp>
+#include <mongocxx/exception/query_exception.hpp>
 #include <utility>
 
 using namespace boost::asio;
@@ -203,8 +204,18 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
     auto &registerDb = m == MonitorOrScraper::Monitor ? _monitorRegisterDb
                                                       : _scraperRegisterDb;
 
-    const auto optRegisteredMonitor =
-        registerDb.find_one(make_document(kvp("name", className)));
+    boost::optional<bsoncxx::document::value> optRegisteredMonitor;
+    try {
+        optRegisteredMonitor =
+            registerDb.find_one(make_document(kvp("name", className)));
+    } catch (const mongocxx::query_exception &e) {
+        response.setError(genericError);
+        response.setInfo(
+            "Failed to query the database (is it up and running?)\n" +
+            std::string{e.what()});
+        cb(response);
+        return;
+    }
 
     if (!optRegisteredMonitor) {
         _logger->debug("Tried to add {} {} but it was not registered",
