@@ -18,6 +18,7 @@ typedef struct {
 class MonitorManager {
   private:
     io_context &_io;
+    steady_timer _processCheckTimer;
     std::unique_ptr<UnixServer> _unixServer{nullptr};
     std::shared_ptr<Config> _config{nullptr};
     std::unique_ptr<spdlog::logger> _logger{nullptr};
@@ -37,6 +38,8 @@ class MonitorManager {
         _scraperProcesses{};
     std::unordered_map<std::string, std::shared_ptr<Process>>
         _tmpScraperProcesses{};
+
+    void checkProcesses(const error_code &);
 
   public:
     MonitorManager() = delete;

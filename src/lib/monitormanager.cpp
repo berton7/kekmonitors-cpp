@@ -61,7 +61,8 @@ void MonitorScraperCompletion::checkForCompletion(const Response &response) {
 }
 
 MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
-    : _io(io), _config(std::move(config)) {
+    : _io(io), _processCheckTimer(io, std::chrono::milliseconds(500)),
+      _config(std::move(config)) {
     if (!_config)
         _config = std::make_shared<Config>();
     _logger = utils::getLogger("MonitorManager");
@@ -124,13 +125,44 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
             }
         }
     });
+
+    _processCheckTimer.async_wait(std::bind(&MonitorManager::checkProcesses,
+                                            this, std::placeholders::_1));
 }
 
 MonitorManager::~MonitorManager() { _fileWatcher.watchThread.join(); }
 
+void MonitorManager::checkProcesses(const error_code &ec) {
+    if (ec) {
+        return;
+    }
+    for (auto it = _monitorProcesses.begin(); it != _monitorProcesses.end();) {
+        auto mProcess = *it;
+        if (!mProcess.second->getProcess().running()) {
+            _logger->warn("Monitor {} has exited with code {}", mProcess.first,
+                          mProcess.second->getProcess().exit_code());
+            it = _monitorProcesses.erase(it);
+        } else
+            ++it;
+    }
+    for (auto it = _scraperProcesses.begin(); it != _scraperProcesses.end();) {
+        auto sProcess = *it;
+        if (!sProcess.second->getProcess().running()) {
+            _logger->warn("Scraper {} has exited with code {}", sProcess.first,
+                          sProcess.second->getProcess().exit_code());
+            it = _scraperProcesses.erase(it);
+        } else
+            ++it;
+    }
+    _processCheckTimer.expires_after(std::chrono::milliseconds(500));
+    _processCheckTimer.async_wait(std::bind(&MonitorManager::checkProcesses,
+                                            this, std::placeholders::_1));
+}
+
 void MonitorManager::shutdown(const Cmd &cmd, const ResponseCallback &&cb) {
     _logger->info("Shutting down...");
     KDBG("Received shutdown");
+    _processCheckTimer.cancel();
     _fileWatcherStop = true;
     _unixServer->shutdown();
     cb(Response::okResponse());
