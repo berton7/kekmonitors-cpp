@@ -8,83 +8,6 @@
 using namespace boost::asio;
 
 namespace kekmonitors {
-CmdConnection::CmdConnection(io_context &io, UnixServer &server)
-    : _io(io), _server(server), _buffer(1024), _socket(io), _timeout(io) {
-    KDBG("Allocating new connection");
-};
-
-CmdConnection::~CmdConnection() {
-    if (_socket.is_open())
-        _socket.close();
-    _timeout.cancel();
-    KDBG("Connection destroyed");
-};
-
-void CmdConnection::onTimeout(const error_code &err) {
-    if (err) {
-        if (err != error::operation_aborted) {
-            KDBG(err.message());
-            return;
-        }
-    } else {
-        KDBG("Connection timed out");
-        _socket.close();
-    }
-}
-
-local::stream_protocol::socket &CmdConnection::getSocket() { return _socket; }
-
-void CmdConnection::onRead(const error_code &err, size_t read) {
-    if (!err || err == error::eof) {
-        _timeout.cancel();
-        try {
-            auto j = json::parse(_buffer);
-            error_code ec;
-            auto cmd = Cmd::fromJson(j, ec);
-            if (!ec) {
-                auto shared = shared_from_this();
-                defer(_io, [cmd, shared]() {
-                    shared->_server._handleCallback(
-                        cmd,
-                        [cmd, shared](const Response &response) {
-                            async_write(shared->_socket,
-                                        buffer(response.toString()),
-                                        std::bind(&CmdConnection::onWrite,
-                                                  shared, std::placeholders::_1,
-                                                  std::placeholders::_2));
-                        },
-                        shared);
-                });
-            } else {
-                KDBG("Received connection but couldn't parse from json: " +
-                     std::string(_buffer.data()));
-            }
-        } catch (std::exception &e) {
-            KDBG(e.what());
-        }
-    } else if (err && err != error::operation_aborted) {
-        KDBG(err.message());
-    }
-};
-
-std::shared_ptr<CmdConnection> CmdConnection::create(io_context &io,
-                                                     UnixServer &server) {
-    return std::make_shared<CmdConnection>(io, server); // ???
-}
-
-void CmdConnection::asyncRead() {
-    _timeout.expires_after(std::chrono::seconds(1));
-    _timeout.async_wait(
-        std::bind(&CmdConnection::onTimeout, this, std::placeholders::_1));
-    async_read(_socket, buffer(_buffer),
-               std::bind(&CmdConnection::onRead, shared_from_this(),
-                         std::placeholders::_1, std::placeholders::_2));
-}
-
-void CmdConnection::onWrite(const error_code &err, size_t read) {
-    if (err)
-        KDBG(err.message());
-};
 
 std::string getServerPath(const std::shared_ptr<Config> &config,
                           const std::string &socketName) {
@@ -125,24 +48,29 @@ UnixServer::UnixServer(io_context &io, const std::string &socketName,
 UnixServer::~UnixServer(){};
 
 void UnixServer::startAccepting() {
-    auto connection = CmdConnection::create(_io, *this);
-    _acceptor->async_accept(connection->getSocket(),
+    auto connection = Connection::create(_io);
+    _acceptor->async_accept(connection->socket,
                             std::bind(&UnixServer::onConnect, this,
                                       std::placeholders::_1, connection));
 };
 
 void UnixServer::onConnect(const error_code &err,
-                           std::shared_ptr<CmdConnection> &connection) {
+                           std::shared_ptr<Connection> &connection) {
     if (!err) {
-        connection->asyncRead();
+        connection->asyncReadCmd(
+            std::bind(&UnixServer::_handleCallback, this, std::placeholders::_1,
+                      std::placeholders::_2, connection));
         startAccepting();
     } else if (err != error::operation_aborted)
         KDBG(err.message());
 }
 
-void UnixServer::_handleCallback(const Cmd &cmd,
-                                 ResponseCallback &&responseCallback,
-                                 std::shared_ptr<CmdConnection> connection) {
+void UnixServer::_handleCallback(const error_code &err, const Cmd &cmd,
+                                 std::shared_ptr<Connection> connection) {
+    if (err) {
+        KDBG("Error: " + err.message());
+        return;
+    }
     auto command = static_cast<uint32_t>(cmd.getCmd());
     try {
         _logger->info("Received cmd " + utils::commandToString(cmd.getCmd()));
@@ -151,13 +79,18 @@ void UnixServer::_handleCallback(const Cmd &cmd,
                       std::to_string(static_cast<uint32_t>(cmd.getCmd())));
     }
     try {
-        _callbacks.at(cmd.getCmd())(cmd, std::move(responseCallback),
-                                    std::move(connection));
+        _callbacks.at(cmd.getCmd())(
+            cmd,
+            std::bind(&Connection::asyncWriteResponse, connection,
+                      std::placeholders::_1,
+                      [](const error_code &, Connection::Ptr) {}),
+            connection);
     } catch (std::out_of_range &e) {
         _logger->warn("Cmd " + std::to_string(command) + " was not registered");
         Response resp;
         resp.setError(ERRORS::UNRECOGNIZED_COMMAND);
-        responseCallback(resp);
+        connection->asyncWriteResponse(
+            resp, [](const error_code &, Connection::Ptr) {});
     }
 }
 

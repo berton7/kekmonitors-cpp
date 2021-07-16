@@ -46,23 +46,23 @@ class MonitorManager {
     explicit MonitorManager(boost::asio::io_context &io,
                             std::shared_ptr<Config> config = nullptr);
     ~MonitorManager();
-    void shutdown(const Cmd &cmd, const ResponseCallback &&cb);
-    void onPing(const Cmd &cmd, const ResponseCallback &&cb);
-    void onAdd(MonitorOrScraper m, const Cmd &cmd, const ResponseCallback &&cb);
-    void onAddMonitorScraper(const Cmd &cmd, const ResponseCallback &&cb,
-                             std::shared_ptr<CmdConnection> connection);
+    void shutdown(const Cmd &cmd, const userResponseCallback &&cb);
+    void onPing(const Cmd &cmd, const userResponseCallback &&cb);
+    void onAdd(MonitorOrScraper m, const Cmd &cmd, const userResponseCallback &&cb);
+    void onAddMonitorScraper(const Cmd &cmd, const userResponseCallback &&cb,
+                             std::shared_ptr<Connection> connection);
     void onStop(MonitorOrScraper m, const Cmd &cmd,
-                const ResponseCallback &&cb);
-    void onStopMonitorScraper(const Cmd &cmd, const ResponseCallback &&cb,
-                              std::shared_ptr<CmdConnection> connection);
+                const userResponseCallback &&cb);
+    void onStopMonitorScraper(const Cmd &cmd, const userResponseCallback &&cb,
+                              std::shared_ptr<Connection> connection);
     void onGetStatus(MonitorOrScraper m, const Cmd &cmd,
-                     const ResponseCallback &&cb);
-    void onGetMonitorScraperStatus(const Cmd &cmd, const ResponseCallback &&cb,
-                                   std::shared_ptr<CmdConnection> connection);
+                     const userResponseCallback &&cb);
+    void onGetMonitorScraperStatus(const Cmd &cmd, const userResponseCallback &&cb,
+                                   std::shared_ptr<Connection> connection);
 };
 
 typedef std::function<void(MonitorManager *, MonitorOrScraper m, const Cmd &cmd,
-                           const ResponseCallback &&cb)>
+                           const userResponseCallback &&cb)>
     MonitorManagerCallback;
 typedef std::function<void(const kekmonitors::Response &,
                            const kekmonitors::Response &)>
@@ -78,7 +78,7 @@ class MonitorScraperCompletion
     const DoubleResponseCallback _completionCb;
     const MonitorManagerCallback _momanCb;
     MonitorManager *_moman;
-    const std::shared_ptr<CmdConnection> _connection;
+    const std::shared_ptr<Connection> _connection;
     Response _firstResponse;
 
   public:
@@ -86,7 +86,7 @@ class MonitorScraperCompletion
     MonitorScraperCompletion(io_service &io, MonitorManager *moman, Cmd cmd,
                              MonitorManagerCallback &&momanCb,
                              DoubleResponseCallback &&completionCb,
-                             std::shared_ptr<CmdConnection> connection);
+                             std::shared_ptr<Connection> connection);
 
     ~MonitorScraperCompletion();
 
@@ -95,7 +95,7 @@ class MonitorScraperCompletion
     static void create(io_service &io, MonitorManager *moman, const Cmd &cmd,
                        MonitorManagerCallback &&momanCb,
                        DoubleResponseCallback &&completionCb,
-                       std::shared_ptr<CmdConnection> connection);
+                       std::shared_ptr<Connection> connection);
 
   private:
     void checkForCompletion(const Response &response);
