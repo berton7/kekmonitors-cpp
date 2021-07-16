@@ -49,6 +49,17 @@ Cmd Cmd::fromString(const std::string &str) {
     return fromJson(json::parse(str));
 }
 
+Cmd Cmd::fromString(const std::string &str, error_code &ec) {
+    try {
+        return fromJson(json::parse(str), ec);
+    }
+    catch(json::exception &e)
+    {
+        ec = boost::system::errc::make_error_code(boost::system::errc::invalid_argument);
+        return Cmd();
+    }
+}
+
 std::string Cmd::toString() const { return toJson().dump(); }
 
 kekmonitors::CommandType Cmd::getCmd() const { return _cmd; }
@@ -124,5 +135,16 @@ Response Response::badResponse() {
 std::string Response::toString() const { return toJson().dump(); }
 Response Response::fromString(const std::string &str) {
     return fromJson(json::parse(str));
+}
+
+Response Response::fromString(const std::string &str, error_code &ec)
+{
+    try {
+        return fromJson(json::parse(str), ec);
+    } catch (json::exception &e) {
+        ec = boost::system::errc::make_error_code(
+            boost::system::errc::invalid_argument);
+        return Response();
+    }
 }
 }; // namespace kekmonitors
