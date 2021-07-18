@@ -46,23 +46,23 @@ class MonitorManager {
     explicit MonitorManager(boost::asio::io_context &io,
                             std::shared_ptr<Config> config = nullptr);
     ~MonitorManager();
-    void shutdown(const Cmd &cmd, const userResponseCallback &&cb);
-    void onPing(const Cmd &cmd, const userResponseCallback &&cb);
-    void onAdd(MonitorOrScraper m, const Cmd &cmd, const userResponseCallback &&cb);
-    void onAddMonitorScraper(const Cmd &cmd, const userResponseCallback &&cb,
+    void shutdown(const Cmd &cmd, const UserResponseCallback &&cb);
+    void onPing(const Cmd &cmd, const UserResponseCallback &&cb);
+    void onAdd(MonitorOrScraper m, const Cmd &cmd, const UserResponseCallback &&cb);
+    void onAddMonitorScraper(const Cmd &cmd, const UserResponseCallback &&cb,
                              std::shared_ptr<Connection> connection);
     void onStop(MonitorOrScraper m, const Cmd &cmd,
-                const userResponseCallback &&cb);
-    void onStopMonitorScraper(const Cmd &cmd, const userResponseCallback &&cb,
+                const UserResponseCallback &&cb);
+    void onStopMonitorScraper(const Cmd &cmd, const UserResponseCallback &&cb,
                               std::shared_ptr<Connection> connection);
     void onGetStatus(MonitorOrScraper m, const Cmd &cmd,
-                     const userResponseCallback &&cb);
-    void onGetMonitorScraperStatus(const Cmd &cmd, const userResponseCallback &&cb,
+                     const UserResponseCallback &&cb);
+    void onGetMonitorScraperStatus(const Cmd &cmd, const UserResponseCallback &&cb,
                                    std::shared_ptr<Connection> connection);
 };
 
 typedef std::function<void(MonitorManager *, MonitorOrScraper m, const Cmd &cmd,
-                           const userResponseCallback &&cb)>
+                           const UserResponseCallback &&cb)>
     MonitorManagerCallback;
 typedef std::function<void(const kekmonitors::Response &,
                            const kekmonitors::Response &)>

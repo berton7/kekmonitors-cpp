@@ -11,8 +11,8 @@ using namespace boost::asio;
 
 namespace kekmonitors {
 
-typedef std::function<void(const kekmonitors::Response &)> userResponseCallback;
-typedef std::function<void(const kekmonitors::Cmd &, userResponseCallback &&, Connection::Ptr)>
+typedef std::function<void(const kekmonitors::Response &)> UserResponseCallback;
+typedef std::function<void(const kekmonitors::Cmd &, UserResponseCallback &&, Connection::Ptr)>
     userCmdCallback;
 typedef std::map<const kekmonitors::CommandType, userCmdCallback> CallbackMap;
 

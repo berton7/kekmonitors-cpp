@@ -159,7 +159,7 @@ void MonitorManager::checkProcesses(const error_code &ec) {
                                             this, std::placeholders::_1));
 }
 
-void MonitorManager::shutdown(const Cmd &cmd, const userResponseCallback &&cb) {
+void MonitorManager::shutdown(const Cmd &cmd, const UserResponseCallback &&cb) {
     _logger->info("Shutting down...");
     KDBG("Received shutdown");
     _processCheckTimer.cancel();
@@ -168,7 +168,7 @@ void MonitorManager::shutdown(const Cmd &cmd, const userResponseCallback &&cb) {
     cb(Response::okResponse());
 }
 
-void MonitorManager::onPing(const Cmd &cmd, const userResponseCallback &&cb) {
+void MonitorManager::onPing(const Cmd &cmd, const UserResponseCallback &&cb) {
     _logger->info("onPing callback!");
     auto response = Response::okResponse();
     response.setInfo("Pong");
@@ -176,7 +176,7 @@ void MonitorManager::onPing(const Cmd &cmd, const userResponseCallback &&cb) {
 }
 
 void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
-                           const userResponseCallback &&cb) {
+                           const UserResponseCallback &&cb) {
     Response response;
     ERRORS genericError = m == MonitorOrScraper::Monitor
                               ? ERRORS::MM_COULDNT_ADD_MONITOR
@@ -315,7 +315,7 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
 }
 
 void MonitorManager::onAddMonitorScraper(
-    const Cmd &cmd, const userResponseCallback &&cb,
+    const Cmd &cmd, const UserResponseCallback &&cb,
     std::shared_ptr<Connection> connection) {
     MonitorScraperCompletion::create(
         _io, this, cmd, &MonitorManager::onAdd,
@@ -328,7 +328,7 @@ void MonitorManager::onAddMonitorScraper(
 }
 
 void MonitorManager::onGetStatus(const MonitorOrScraper m, const Cmd &cmd,
-                                 const userResponseCallback &&cb) {
+                                 const UserResponseCallback &&cb) {
     Response response;
     std::unordered_map<std::string, std::shared_ptr<Process>> &processes =
         m == MonitorOrScraper::Monitor ? _monitorProcesses : _scraperProcesses;
@@ -345,7 +345,7 @@ void MonitorManager::onGetStatus(const MonitorOrScraper m, const Cmd &cmd,
 }
 
 void MonitorManager::onGetMonitorScraperStatus(
-    const Cmd &cmd, const userResponseCallback &&cb,
+    const Cmd &cmd, const UserResponseCallback &&cb,
     std::shared_ptr<Connection> connection) {
     MonitorScraperCompletion::create(
         _io, this, cmd, &MonitorManager::onGetStatus,
@@ -359,7 +359,7 @@ void MonitorManager::onGetMonitorScraperStatus(
         std::move(connection));
 }
 void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
-                            const kekmonitors::userResponseCallback &&cb) {
+                            const kekmonitors::UserResponseCallback &&cb) {
     Response response;
 
     if (cmd.getPayload() == nullptr) {
@@ -395,6 +395,6 @@ void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
 }
 
 void MonitorManager::onStopMonitorScraper(
-    const Cmd &cmd, const userResponseCallback &&cb,
+    const Cmd &cmd, const UserResponseCallback &&cb,
     std::shared_ptr<Connection> connection) {}
 } // namespace kekmonitors
