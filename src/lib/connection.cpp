@@ -1,6 +1,7 @@
 //
 // Created by berton on 09/07/21.
 //
+//#include <boost/asio/local/stream_protocol.hpp>
 #include <kekmonitors/connection.hpp>
 
 namespace kekmonitors {
@@ -33,8 +34,7 @@ Connection::Ptr Connection::create(io_context &io) {
     return std::make_shared<Connection>(io);
 }
 
-void Connection::asyncReadCmd(
-    const CmdCallback &&cb) {
+void Connection::asyncReadCmd(const CmdCallback &&cb) {
     _timeout.expires_after(std::chrono::seconds(1));
     _timeout.async_wait(
         std::bind(&Connection::onTimeout, this, std::placeholders::_1));
@@ -73,6 +73,49 @@ void Connection::asyncWriteResponse(
                         KDBG(err.message());
                     cb(err, shared);
                 });
+}
+
+void Connection::asyncWriteCmd(
+    const Cmd &cmd, std::function<void(const error_code &, Ptr)> &&cb) {
+    auto shared = shared_from_this();
+    async_write(socket, buffer(cmd.toString()),
+                [shared, cb](const error_code &err, size_t read) {
+                    if (err)
+                        KDBG(err.message());
+                    shared->socket.shutdown(
+                        local::stream_protocol::socket::shutdown_send);
+                    cb(err, shared);
+                });
+}
+
+void Connection::asyncReadResponse(
+    std::function<void(const error_code &, const Response &, Ptr)> &&cb) {
+    _timeout.expires_after(std::chrono::seconds(1));
+    _timeout.async_wait(
+        std::bind(&Connection::onTimeout, this, std::placeholders::_1));
+    auto shared = shared_from_this();
+    async_read(socket, buffer(_buffer),
+               [shared, this, cb](const error_code &err, size_t read) {
+                   Response response;
+                   if (!err || err == error::eof) {
+                       _timeout.cancel();
+                       error_code ec;
+                       std::string buf{_buffer.begin(), _buffer.end()};
+                       response = Response::fromString(buf, ec);
+                       if (ec) {
+                           KDBG("Received connection but couldn't parse from "
+                                "json: " +
+                                buf);
+                       }
+                       cb(ec, response, shared);
+                   } else if (err && err != error::operation_aborted) {
+                       KDBG(err.message());
+                       cb(err, response, shared);
+                   } else // operation aborted
+                   {
+                       cb(err, response, shared);
+                   }
+               });
 }
 
 } // namespace kekmonitors

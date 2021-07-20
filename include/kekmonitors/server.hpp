@@ -1,9 +1,9 @@
 #pragma once
 #include <boost/asio.hpp>
 #include <chrono>
-#include <kekmonitors/core.hpp>
 #include <kekmonitors/config.hpp>
 #include <kekmonitors/connection.hpp>
+#include <kekmonitors/core.hpp>
 #include <kekmonitors/msg.hpp>
 #include <spdlog/logger.h>
 
@@ -11,8 +11,10 @@ using namespace boost::asio;
 
 namespace kekmonitors {
 
-typedef std::function<void(const kekmonitors::Response &)> UserResponseCallback;
-typedef std::function<void(const kekmonitors::Cmd &, UserResponseCallback &&, Connection::Ptr)>
+typedef std::function<void(const kekmonitors::Response &, Connection::Ptr)>
+    UserResponseCallback;
+typedef std::function<void(const kekmonitors::Cmd &, UserResponseCallback &&,
+                           Connection::Ptr)>
     userCmdCallback;
 typedef std::map<const kekmonitors::CommandType, userCmdCallback> CallbackMap;
 
