@@ -1,10 +1,13 @@
 #pragma once
+#include <string>
+#include <unordered_map>
+#include <boost/asio/local/stream_protocol.hpp>
+#include <mongocxx/client.hpp>
+#include <mongocxx/instance.hpp>
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/msg.hpp>
 #include <kekmonitors/process.hpp>
 #include <kekmonitors/server.hpp>
-#include <mongocxx/client.hpp>
-#include <mongocxx/instance.hpp>
 
 namespace kekmonitors {
 
@@ -12,7 +15,6 @@ typedef struct {
     Inotify inotify;
     std::vector<InotifyWatch> watches;
     std::thread watchThread;
-    std::deque<InotifyEvent> eventQueue;
 } FileWatcher;
 
 class MonitorManager {
@@ -26,9 +28,7 @@ class MonitorManager {
     mongocxx::database _kekDb{};
     mongocxx::collection _monitorRegisterDb{};
     mongocxx::collection _scraperRegisterDb{};
-    std::mutex _fileWatcherLock;
     std::atomic<bool> _fileWatcherStop{false};
-    std::atomic<bool> _fileWatcherAddEvent{false};
     FileWatcher _fileWatcher;
     std::unordered_map<std::string, std::shared_ptr<Process>>
         _monitorProcesses{};
@@ -38,6 +38,11 @@ class MonitorManager {
         _scraperProcesses{};
     std::unordered_map<std::string, std::shared_ptr<Process>>
         _tmpScraperProcesses{};
+    std::mutex _socketLock{};
+    std::unordered_map<std::string, local::stream_protocol::endpoint>
+        _monitorSockets{};
+    std::unordered_map<std::string, local::stream_protocol::endpoint>
+        _scraperSockets{};
 
     void checkProcesses(const error_code &);
 

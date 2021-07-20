@@ -1,15 +1,24 @@
+#include <iostream>
+#include <mutex>
+#include <utility>
+#include <boost/asio/local/stream_protocol.hpp>
+#include <boost/filesystem.hpp>
+#include <mongocxx/exception/query_exception.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
 #include <bsoncxx/builder/basic/kvp.hpp>
 #include <bsoncxx/json.hpp>
-#include <iostream>
 #include <kekmonitors/monitormanager.hpp>
 #include <kekmonitors/utils.hpp>
-#include <mongocxx/exception/query_exception.hpp>
-#include <utility>
 
 using namespace boost::asio;
 using namespace boost::placeholders;
 using namespace bsoncxx::builder::basic;
+
+static inline bool is_socket(const std::string &path) {
+    struct stat s;
+    stat(path.c_str(), &s);
+    return S_ISSOCK(s.st_mode);
+}
 
 namespace kekmonitors {
 
@@ -41,10 +50,11 @@ void MonitorScraperCompletion::run() {
     });
 };
 
-void MonitorScraperCompletion::create(
-    io_service &io, MonitorManager *moman, const Cmd &cmd,
-    MonitorManagerCallback &&momanCb, DoubleResponseCallback &&completionCb,
-    std::shared_ptr<Connection> connection) {
+void MonitorScraperCompletion::create(io_service &io, MonitorManager *moman,
+                                      const Cmd &cmd,
+                                      MonitorManagerCallback &&momanCb,
+                                      DoubleResponseCallback &&completionCb,
+                                      std::shared_ptr<Connection> connection) {
     std::make_shared<MonitorScraperCompletion>(
         io, moman, cmd, std::move(momanCb), std::move(completionCb),
         std::move(connection))
@@ -115,12 +125,43 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
         while (!_fileWatcherStop) {
             _fileWatcher.inotify.WaitForEvents();
             size_t count = _fileWatcher.inotify.GetEventCount();
-            while (count-- > 0) {
+            for (; count > 0; --count) {
                 InotifyEvent event;
                 bool got_event = _fileWatcher.inotify.GetEvent(&event);
-                if (got_event) {
-                    _fileWatcher.eventQueue.emplace_back(std::move(event));
-                    _fileWatcherAddEvent = true;
+                const auto &socketName = event.GetName();
+                std::string eventType;
+                event.DumpTypes(eventType);
+                if (got_event &&
+                    (eventType == "IN_CREATE" &&
+                         is_socket(
+                             event.GetWatch()->GetPath() +
+                             boost::filesystem::path::preferred_separator +
+                             socketName) ||
+                     eventType == "IN_DELETE")) {
+                    for (const auto &type :
+                         {std::string{"Monitor."}, std::string{"Scraper."}}) {
+                        const auto typeLen = type.length();
+                        if (socketName.substr(0, typeLen) == type) {
+                            auto &map = type == "Monitor." ? _monitorSockets
+                                                           : _scraperSockets;
+                            std::string className{socketName.substr(
+                                typeLen, socketName.length() - typeLen)};
+                            if (eventType == "IN_CREATE") {
+                                std::lock_guard lock(_socketLock);
+                                KDBG("Socket was created, className: " +
+                                     className);
+                                map.emplace(std::make_pair(
+                                    className, local::stream_protocol::endpoint(
+                                                   socketName)));
+                            } else if (map.find(className) != map.end()) {
+                                std::lock_guard lock(_socketLock);
+                                KDBG("Socket was destroyed, className: " +
+                                     className);
+                                map.erase(className);
+                            }
+                            break;
+                        }
+                    }
                 }
             }
         }
