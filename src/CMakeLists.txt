@@ -3,9 +3,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 option(KEKMONITORS_SHARED_LIBS "Build kekmonitors shared or static" OFF)
 
-include(ExternalProject)
+include(FetchContent)
 
-ExternalProject_Add(
+FetchContent_Declare(
 		spdlog
 		PREFIX spdlog
 		SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/spdlog
@@ -19,8 +19,14 @@ ExternalProject_Add(
 		-DCMAKE_INSTALL_PREFIX=${STAGING_DIR}
 		-DSPDLOG_MASTER_PROJECT=OFF
 		-DSPDLOG_BUILD_SHARED=OFF
-		INSTALL_COMMAND ""
 )
+
+FetchContent_MakeAvailable(spdlog)
+FetchContent_GetProperties(spdlog)
+if (NOT spdlog_POPULATED)
+	FetchContent_Populate(spdlog)
+	add_subdirectory(${spdlog_SOURCE_DIR} ${spdlog_BINARY_DIR})
+endif()
 
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system filesystem)
 find_package(libmongocxx REQUIRED)
