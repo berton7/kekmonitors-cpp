@@ -35,8 +35,8 @@ void onConnect(const error_code &err, local::stream_protocol::socket *socket) {
     Cmd cmd;
     cmd.setCmd(COMMANDS::MM_STOP_MONITOR_MANAGER);
     async_write(*socket, buffer(cmd.toJson().dump()),
-                std::bind(&onWrite, std::placeholders::_1,
-                          std::placeholders::_2, socket));
+                std::bind(&onWrite, ph::_1,
+                          ph::_2, socket));
 }
 
 int main() {
@@ -46,7 +46,7 @@ int main() {
     socket.async_connect(
         local::stream_protocol::endpoint(utils::getLocalKekDir() +
                                          "/sockets/MonitorManager"),
-        std::bind(&onConnect, std::placeholders::_1, &socket));
+        std::bind(&onConnect, ph::_1, &socket));
     io.run();
     socket.close();
 }

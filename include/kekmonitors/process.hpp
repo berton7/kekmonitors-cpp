@@ -9,8 +9,6 @@
 #include <kekmonitors/utils.hpp>
 #include <nlohmann/json.hpp>
 
-using json = nlohmann::json;
-
 namespace kekmonitors {
 
 class Process {
@@ -23,8 +21,8 @@ class Process {
     Process() = default;
     template <typename... Args>
     Process(std::string className,
-            const boost::filesystem::path &pythonExecutablePath,
-            const boost::filesystem::path &monitorExecutablePath, Args... args)
+            const fs::path &pythonExecutablePath,
+            const fs::path &monitorExecutablePath, Args... args)
         : _className(std::move(className)),
           _process(pythonExecutablePath, monitorExecutablePath, args...),
           _creation(std::time(nullptr)) {
@@ -35,7 +33,7 @@ class Process {
 
     std::time_t getCreation() const { return _creation; };
     boost::process::child &getProcess() { return _process; };
-    json toJson() const {
+    nlohmann::json toJson() const {
         return {
             {_className, {{"Started at", _creation}, {"PID", _process.id()}}}};
     };

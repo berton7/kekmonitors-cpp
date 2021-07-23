@@ -13,8 +13,8 @@ std::string getServerPath(const std::shared_ptr<Config> &config,
                           const std::string &socketName) {
     std::string serverPath{
         config->parser.get<std::string>("GlobalConfig.socket_path")};
-    boost::filesystem::create_directories(serverPath);
-    serverPath += boost::filesystem::path::separator;
+    fs::create_directories(serverPath);
+    serverPath += fs::path::separator;
     serverPath.append(socketName);
     return serverPath;
 }
@@ -51,15 +51,15 @@ void UnixServer::startAccepting() {
     auto connection = Connection::create(_io);
     _acceptor->async_accept(connection->socket,
                             std::bind(&UnixServer::onConnect, this,
-                                      std::placeholders::_1, connection));
+                                      ph::_1, connection));
 };
 
 void UnixServer::onConnect(const error_code &err,
                            std::shared_ptr<Connection> &connection) {
     if (!err) {
         connection->asyncReadCmd(
-            std::bind(&UnixServer::_handleCallback, this, std::placeholders::_1,
-                      std::placeholders::_2, connection));
+            std::bind(&UnixServer::_handleCallback, this, ph::_1,
+                      ph::_2, connection));
         startAccepting();
     } else if (err != error::operation_aborted)
         KDBG(err.message());
@@ -82,7 +82,7 @@ void UnixServer::_handleCallback(const error_code &err, const Cmd &cmd,
         _callbacks.at(cmd.getCmd())(
             cmd,
             std::bind(&Connection::asyncWriteResponse, connection,
-                      std::placeholders::_1,
+                      ph::_1,
                       [](const error_code &, Connection::Ptr) {}),
             connection);
     } catch (std::out_of_range &e) {

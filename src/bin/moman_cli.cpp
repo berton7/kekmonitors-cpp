@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
     kekmonitors::Config cfg;
     sock.connect(local::stream_protocol::endpoint(
         cfg.parser.get<std::string>("GlobalConfig.socket_path") +
-        boost::filesystem::path::separator + "MonitorManager"));
+        kekmonitors::fs::path::separator + "MonitorManager"));
     sock.send(buffer(cmd.toJson().dump()));
     sock.shutdown(local::stream_protocol::socket::shutdown_send);
     std::vector<char> buf(1024);

@@ -9,9 +9,7 @@
 #include <sstream>
 #include <unistd.h>
 
-using namespace boost;
-
-namespace kekmonitors::utils {
+namespace kekmonitors::utils{
 std::string getUserHomeDir() {
     return getenv("HOME") ?: getpwuid(getuid())->pw_dir;
 }
@@ -21,10 +19,10 @@ std::string getLocalKekDir() { return getUserHomeDir() + "/.kekmonitors"; }
 std::string getContentIfFileExistsElseCreate(const std::string &filepath,
                                              const std::string &content) {
     const std::string filepathUntilFile = filepath.substr(
-        0, filepath.rfind(filesystem::path::preferred_separator));
-    filesystem::create_directories(filepathUntilFile);
+        0, filepath.rfind(fs::path::preferred_separator));
+    fs::create_directories(filepathUntilFile);
     std::fstream file;
-    if (filesystem::is_regular_file(filepath)) {
+    if (fs::is_regular_file(filepath)) {
         file.open(filepath, std::ios::in);
         if (!file.is_open()) {
             KDBG("Failed to open config file.");
@@ -92,9 +90,9 @@ std::string getStringWithoutNamespaces(CommandType command) {
         kekmonitors::utils::commandToString(command));
 }
 
-boost::filesystem::path getPythonExecutable() {
+fs::path getPythonExecutable() {
     namespace bp = boost::process;
-    static boost::filesystem::path pythonExecutable{};
+    static fs::path pythonExecutable{};
     if (pythonExecutable.empty()) {
         for (const auto &possiblePythonPath : {"python", "python3"}) {
             auto pythonPath = bp::search_path(possiblePythonPath);

@@ -37,7 +37,7 @@ Connection::Ptr Connection::create(io_context &io) {
 void Connection::asyncReadCmd(const CmdCallback &&cb) {
     _timeout.expires_after(std::chrono::seconds(1));
     _timeout.async_wait(
-        std::bind(&Connection::onTimeout, this, std::placeholders::_1));
+        std::bind(&Connection::onTimeout, this, ph::_1));
     auto shared = shared_from_this();
     async_read(socket, buffer(_buffer),
                [shared, this, cb](const error_code &err, size_t read) {
@@ -92,7 +92,7 @@ void Connection::asyncReadResponse(
     std::function<void(const error_code &, const Response &, Ptr)> &&cb) {
     _timeout.expires_after(std::chrono::seconds(1));
     _timeout.async_wait(
-        std::bind(&Connection::onTimeout, this, std::placeholders::_1));
+        std::bind(&Connection::onTimeout, this, ph::_1));
     auto shared = shared_from_this();
     async_read(socket, buffer(_buffer),
                [shared, this, cb](const error_code &err, size_t read) {

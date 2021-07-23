@@ -12,27 +12,25 @@
 
 #define REGISTER_CALLBACK(cmd, cb)                                             \
     {                                                                          \
-        cmd, std::bind(cb, this, std::placeholders::_1, std::placeholders::_2, \
-                       std::placeholders::_3)                                  \
+        cmd, std::bind(cb, this, ph::_1, ph::_2, \
+                       ph::_3)                                  \
     }
 
 #define M_REGISTER_CALLBACK(cmd, cb)                                           \
     {                                                                          \
         cmd, std::bind(cb, this, MonitorOrScraper::Monitor,                    \
-                       std::placeholders::_1, std::placeholders::_2,           \
-                       std::placeholders::_3)                                  \
+                       ph::_1, ph::_2,           \
+                       ph::_3)                                  \
     }
 
 #define S_REGISTER_CALLBACK(cmd, cb)                                           \
     {                                                                          \
         cmd, std::bind(cb, this, MonitorOrScraper::Scraper,                    \
-                       std::placeholders::_1, std::placeholders::_2,           \
-                       std::placeholders::_3)                                  \
+                       ph::_1, ph::_2,           \
+                       ph::_3)                                  \
     }
 
 using namespace boost::asio;
-using namespace boost::placeholders;
-using namespace bsoncxx::builder::basic;
 
 static inline bool is_socket(const std::string &path) {
     struct stat s;
@@ -60,14 +58,14 @@ void MonitorScraperCompletion::run() {
         return shared->_momanCb(
             shared->_moman, MonitorOrScraper::Monitor, shared->_cmd,
             std::bind(&MonitorScraperCompletion::checkForCompletion, shared,
-                      std::placeholders::_1),
+                      ph::_1),
             _connection);
     });
     post(_io, [=] {
         return shared->_momanCb(
             shared->_moman, MonitorOrScraper::Scraper, shared->_cmd,
             std::bind(&MonitorScraperCompletion::checkForCompletion, shared,
-                      std::placeholders::_1),
+                      ph::_1),
             _connection);
     });
 };
@@ -145,7 +143,7 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
                 event.DumpTypes(eventType);
                 const auto socketFullPath =
                     event.GetWatch()->GetPath() +
-                    boost::filesystem::path::preferred_separator + socketName;
+                    fs::path::preferred_separator + socketName;
                 if (got_event &&
                     (eventType == "IN_CREATE" && is_socket(socketFullPath) ||
                      eventType == "IN_DELETE")) {
@@ -179,7 +177,7 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
     });
 
     _processCheckTimer.async_wait(std::bind(&MonitorManager::checkProcesses,
-                                            this, std::placeholders::_1));
+                                            this, ph::_1));
 }
 
 MonitorManager::~MonitorManager() { _fileWatcher.watchThread.join(); }
@@ -208,7 +206,7 @@ void MonitorManager::checkProcesses(const error_code &ec) {
     }
     _processCheckTimer.expires_after(std::chrono::milliseconds(500));
     _processCheckTimer.async_wait(std::bind(&MonitorManager::checkProcesses,
-                                            this, std::placeholders::_1));
+                                            this, ph::_1));
 }
 
 void MonitorManager::shutdown(const Cmd &cmd, const UserResponseCallback &&cb,
@@ -294,7 +292,7 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
     boost::optional<bsoncxx::document::value> optRegisteredMonitor;
     try {
         optRegisteredMonitor =
-            registerDb.find_one(make_document(kvp("name", className)));
+            registerDb.find_one(bsoncxx::builder::basic::make_document(bsoncxx::builder::basic::kvp("name", className)));
     } catch (const mongocxx::query_exception &e) {
         response.setError(genericError);
         response.setInfo(
