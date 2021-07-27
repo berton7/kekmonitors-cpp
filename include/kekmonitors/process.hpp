@@ -34,8 +34,8 @@ class Process {
     std::time_t getCreation() const { return _creation; };
     boost::process::child &getProcess() { return _process; };
     nlohmann::json toJson() const {
-        return {
-            {_className, {{"Started at", _creation}, {"PID", _process.id()}}}};
+        return
+            {{"Started at", _creation}, {"PID", _process.id()}};
     };
     const std::string &getClassName() const { return _className; }
 };
