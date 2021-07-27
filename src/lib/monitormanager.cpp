@@ -111,16 +111,22 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
                               &MonitorManager::shutdown),
             M_REGISTER_CALLBACK(COMMANDS::MM_ADD_MONITOR,
                                 &MonitorManager::onAdd),
+            S_REGISTER_CALLBACK(COMMANDS::MM_ADD_SCRAPER,
+                                &MonitorManager::onAdd),
+            REGISTER_CALLBACK(COMMANDS::MM_ADD_MONITOR_SCRAPER,
+                              &MonitorManager::onAddMonitorScraper),
             M_REGISTER_CALLBACK(COMMANDS::MM_GET_MONITOR_STATUS,
                                 &MonitorManager::onGetStatus),
             S_REGISTER_CALLBACK(COMMANDS::MM_GET_SCRAPER_STATUS,
                                 &MonitorManager::onGetStatus),
             REGISTER_CALLBACK(COMMANDS::MM_GET_MONITOR_SCRAPER_STATUS,
                               &MonitorManager::onGetMonitorScraperStatus),
-            REGISTER_CALLBACK(COMMANDS::MM_ADD_MONITOR_SCRAPER,
-                              &MonitorManager::onAddMonitorScraper),
             M_REGISTER_CALLBACK(COMMANDS::MM_STOP_MONITOR,
-                                &MonitorManager::onStop)},
+                                &MonitorManager::onStop),
+            S_REGISTER_CALLBACK(COMMANDS::MM_STOP_SCRAPER,
+                                &MonitorManager::onStop),
+            REGISTER_CALLBACK(COMMANDS::MM_STOP_MONITOR_SCRAPER,
+                              &MonitorManager::onStopMonitorScraper)},
         _config);
     _fileWatcher.watches.emplace_back(
         _config->parser.get<std::string>("GlobalConfig.socket_path"),
@@ -499,6 +505,14 @@ void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
 void MonitorManager::onStopMonitorScraper(const Cmd &cmd,
                                           const UserResponseCallback &&cb,
                                           Connection::Ptr connection) {
-    cb(Response::badResponse(), connection);
+    MonitorScraperCompletion::create(
+        _io, this, cmd, &MonitorManager::onStop,
+        [=](const Response &firstResponse, const Response &secondResponse) {
+            cb(utils::makeCommonResponse(
+                   firstResponse, secondResponse,
+                   ERRORS::MM_COULDNT_STOP_MONITOR_SCRAPER),
+               connection);
+        },
+        std::move(connection));
 }
 } // namespace kekmonitors
