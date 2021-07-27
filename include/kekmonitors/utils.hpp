@@ -21,7 +21,7 @@ std::string getLocalKekDir();
 std::string getContentIfFileExistsElseCreate(const std::string &filepath,
                                              const std::string &content = "");
 
-std::unique_ptr<spdlog::logger> getLogger(const std::string &name);
+std::shared_ptr<spdlog::logger> getLogger(const std::string &name);
 
 std::string getStringWithoutNamespaces(const std::string &command);
 

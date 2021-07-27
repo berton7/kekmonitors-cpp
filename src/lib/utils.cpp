@@ -9,7 +9,7 @@
 #include <sstream>
 #include <unistd.h>
 
-namespace kekmonitors::utils{
+namespace kekmonitors::utils {
 std::string getUserHomeDir() {
     return getenv("HOME") ?: getpwuid(getuid())->pw_dir;
 }
@@ -18,8 +18,8 @@ std::string getLocalKekDir() { return getUserHomeDir() + "/.kekmonitors"; }
 
 std::string getContentIfFileExistsElseCreate(const std::string &filepath,
                                              const std::string &content) {
-    const std::string filepathUntilFile = filepath.substr(
-        0, filepath.rfind(fs::path::preferred_separator));
+    const std::string filepathUntilFile =
+        filepath.substr(0, filepath.rfind(fs::path::preferred_separator));
     fs::create_directories(filepathUntilFile);
     std::fstream file;
     if (fs::is_regular_file(filepath)) {
@@ -49,7 +49,7 @@ std::string getContentIfFileExistsElseCreate(const std::string &filepath,
     }
 }
 
-std::unique_ptr<spdlog::logger> getLogger(const std::string &name) {
+std::shared_ptr<spdlog::logger> getLogger(const std::string &name) {
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     console_sink->set_level(spdlog::level::debug);
     console_sink->set_pattern("[%^%n%$] %v");
@@ -58,7 +58,7 @@ std::unique_ptr<spdlog::logger> getLogger(const std::string &name) {
     //     "logs/multisink.txt", true);
     // file_sink->set_level(spdlog::level::trace);
 
-    std::unique_ptr<spdlog::logger> logger = std::make_unique<spdlog::logger>(
+    auto logger = std::make_shared<spdlog::logger>(
         name,
         std::initializer_list<spdlog::sink_ptr>{console_sink /*, file_sink*/});
     logger->set_level(spdlog::level::debug);

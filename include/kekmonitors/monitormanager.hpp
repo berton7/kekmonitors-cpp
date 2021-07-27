@@ -23,7 +23,7 @@ class MonitorManager {
     steady_timer _processCheckTimer;
     std::unique_ptr<UnixServer> _unixServer{nullptr};
     std::shared_ptr<Config> _config{nullptr};
-    std::unique_ptr<spdlog::logger> _logger{nullptr};
+    std::shared_ptr<spdlog::logger> _logger{nullptr};
     std::unique_ptr<mongocxx::client> _kekDbConnection{nullptr};
     mongocxx::database _kekDb{};
     mongocxx::collection _monitorRegisterDb{};

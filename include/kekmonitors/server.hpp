@@ -24,7 +24,7 @@ class UnixServer {
     std::string _serverPath{};
     io_service &_io;
     std::shared_ptr<Config> _config{nullptr};
-    std::unique_ptr<spdlog::logger> _logger{nullptr};
+    std::shared_ptr<spdlog::logger> _logger{nullptr};
 
   public:
     CallbackMap _callbacks{};
