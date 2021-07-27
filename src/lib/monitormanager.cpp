@@ -11,23 +11,18 @@
 #include <utility>
 
 #define REGISTER_CALLBACK(cmd, cb)                                             \
-    {                                                                          \
-        cmd, std::bind(cb, this, ph::_1, ph::_2, \
-                       ph::_3)                                  \
-    }
+    { cmd, std::bind(cb, this, ph::_1, ph::_2, ph::_3) }
 
 #define M_REGISTER_CALLBACK(cmd, cb)                                           \
     {                                                                          \
-        cmd, std::bind(cb, this, MonitorOrScraper::Monitor,                    \
-                       ph::_1, ph::_2,           \
-                       ph::_3)                                  \
+        cmd, std::bind(cb, this, MonitorOrScraper::Monitor, ph::_1, ph::_2,    \
+                       ph::_3)                                                 \
     }
 
 #define S_REGISTER_CALLBACK(cmd, cb)                                           \
     {                                                                          \
-        cmd, std::bind(cb, this, MonitorOrScraper::Scraper,                    \
-                       ph::_1, ph::_2,           \
-                       ph::_3)                                  \
+        cmd, std::bind(cb, this, MonitorOrScraper::Scraper, ph::_1, ph::_2,    \
+                       ph::_3)                                                 \
     }
 
 using namespace boost::asio;
@@ -141,9 +136,9 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
                 const auto &socketName = event.GetName();
                 std::string eventType;
                 event.DumpTypes(eventType);
-                const auto socketFullPath =
-                    event.GetWatch()->GetPath() +
-                    fs::path::preferred_separator + socketName;
+                const auto socketFullPath = event.GetWatch()->GetPath() +
+                                            fs::path::preferred_separator +
+                                            socketName;
                 if (got_event &&
                     (eventType == "IN_CREATE" && is_socket(socketFullPath) ||
                      eventType == "IN_DELETE")) {
@@ -176,11 +171,16 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
         }
     });
 
-    _processCheckTimer.async_wait(std::bind(&MonitorManager::checkProcesses,
-                                            this, ph::_1));
+    _processCheckTimer.async_wait(
+        std::bind(&MonitorManager::checkProcesses, this, ph::_1));
 }
 
-MonitorManager::~MonitorManager() { _fileWatcher.watchThread.join(); }
+MonitorManager::~MonitorManager() {
+    for (auto &processes : {_monitorProcesses, _scraperProcesses})
+        for (auto &process : _monitorProcesses)
+            process.second->getProcess().terminate();
+    _fileWatcher.watchThread.join();
+}
 
 void MonitorManager::checkProcesses(const error_code &ec) {
     if (ec) {
@@ -205,8 +205,8 @@ void MonitorManager::checkProcesses(const error_code &ec) {
             ++it;
     }
     _processCheckTimer.expires_after(std::chrono::milliseconds(500));
-    _processCheckTimer.async_wait(std::bind(&MonitorManager::checkProcesses,
-                                            this, ph::_1));
+    _processCheckTimer.async_wait(
+        std::bind(&MonitorManager::checkProcesses, this, ph::_1));
 }
 
 void MonitorManager::shutdown(const Cmd &cmd, const UserResponseCallback &&cb,
@@ -292,7 +292,8 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
     boost::optional<bsoncxx::document::value> optRegisteredMonitor;
     try {
         optRegisteredMonitor =
-            registerDb.find_one(bsoncxx::builder::basic::make_document(bsoncxx::builder::basic::kvp("name", className)));
+            registerDb.find_one(bsoncxx::builder::basic::make_document(
+                bsoncxx::builder::basic::kvp("name", className)));
     } catch (const mongocxx::query_exception &e) {
         response.setError(genericError);
         response.setInfo(
@@ -385,16 +386,26 @@ void MonitorManager::onGetStatus(const MonitorOrScraper m, const Cmd &cmd,
                                  const UserResponseCallback &&cb,
                                  Connection::Ptr connection) {
     Response response;
-    std::unordered_map<std::string, std::shared_ptr<Process>> &processes =
-        m == MonitorOrScraper::Monitor ? _monitorProcesses : _scraperProcesses;
     json payload;
-    if (!processes.empty()) {
-        json monitoredProcesses;
-        for (const auto &process : processes) {
-            monitoredProcesses.push_back(process.second->toJson());
-        }
-        payload["monitored_processes"] = monitoredProcesses;
+    json monitoredProcesses = json::object();
+    json monitoredSockets = json::object();
+
+    auto &processes =
+        m == MonitorOrScraper::Monitor ? _monitorProcesses : _scraperProcesses;
+    for (const auto &process : processes) {
+        monitoredProcesses[process.first] = process.second->toJson();
     }
+    payload["monitored_processes"] = monitoredProcesses;
+
+    auto &sockets =
+        m == MonitorOrScraper::Monitor ? _monitorSockets : _scraperSockets;
+    if (!sockets.empty()) {
+        for (const auto &socket : sockets) {
+            monitoredSockets[socket.first] = socket.second.path();
+        }
+    }
+    payload["monitored_sockets"] = monitoredSockets;
+
     response.setPayload(payload);
     cb(response, connection);
 }
@@ -407,8 +418,14 @@ void MonitorManager::onGetMonitorScraperStatus(const Cmd &cmd,
         [=](const Response &firstResponse, const Response &secondResponse) {
             Response response{
                 utils::makeCommonResponse(firstResponse, secondResponse)};
-            response.setPayload({{"monitors", firstResponse.getPayload()},
-                                 {"scrapers", secondResponse.getPayload()}});
+            json payload;
+            json tmpPayload = firstResponse.getPayload();
+            payload["monitors"] =
+                tmpPayload.is_null() ? json::object() : tmpPayload;
+            tmpPayload = secondResponse.getPayload();
+            payload["scrapers"] =
+                tmpPayload.is_null() ? json::object() : tmpPayload;
+            response.setPayload(payload);
             cb(response, connection);
         },
         std::move(connection));
