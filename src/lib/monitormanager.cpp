@@ -178,7 +178,8 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
 MonitorManager::~MonitorManager() {
     for (auto &processes : {_monitorProcesses, _scraperProcesses})
         for (auto &process : _monitorProcesses)
-            process.second->getProcess().terminate();
+            if (process.second->getProcess().running())
+                process.second->getProcess().terminate();
     _fileWatcher.watchThread.join();
 }
 
