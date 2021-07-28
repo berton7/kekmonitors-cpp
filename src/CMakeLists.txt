@@ -37,7 +37,7 @@ include_directories(${PROJECT_SOURCE_DIR}/deps/include)
 include_directories(${LIBMONGOCXX_INCLUDE_DIRS})
 include_directories(${LIBBSONCXX_INCLUDE_DIRS})
 
-set(KEKMONITORS_SOURCE lib/inotify-cxx.cpp lib/monitormanager.cpp lib/msg.cpp lib/server.cpp lib/utils.cpp lib/config.cpp lib/core.cpp lib/connection.cpp ../include/kekmonitors/connection.hpp)
+set(KEKMONITORS_SOURCE lib/inotify-cxx.cpp lib/msg.cpp lib/server.cpp lib/utils.cpp lib/config.cpp lib/core.cpp lib/connection.cpp ../include/kekmonitors/connection.hpp)
 set(KEKMONITORS_LIB_DEPS kekmonitors pthread Boost::system Boost::filesystem ${LIBMONGOCXX_LIBRARIES})
 
 if (KEKMONITORS_SHARED_LIBS)
