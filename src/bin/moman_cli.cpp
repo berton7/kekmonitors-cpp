@@ -1,5 +1,4 @@
 #include <boost/asio.hpp>
-#include <boost/filesystem.hpp>
 #include <iostream>
 #include <kekmonitors/config.hpp>
 #include <kekmonitors/utils.hpp>
@@ -38,26 +37,21 @@ int main(int argc, char *argv[]) {
     } else
         command = static_cast<kekmonitors::CommandType>(intCommand);
 
-    if (argc > 2)
-    {
+    if (argc > 2) {
         json payload;
-        if (!(argc % 2))
-        {
-            for (int i=2; i<argc; i++)
-            {
-                if (!(i%2))
-                {
-                    if (!(argv[i][0] == '-' && argv[i][1] == '-'))
-                    {
-                        std::cerr << "You must start every payload key with \"--\"" << std::endl;
+        if (!(argc % 2)) {
+            for (int i = 2; i < argc; i++) {
+                if (!(i % 2)) {
+                    if (!(argv[i][0] == '-' && argv[i][1] == '-')) {
+                        std::cerr
+                            << "You must start every payload key with \"--\""
+                            << std::endl;
                         return 4;
                     }
-                    payload[argv[i] + 2] = argv[i+1];
+                    payload[argv[i] + 2] = argv[i + 1];
                 }
             }
-        }
-        else
-        {
+        } else {
             std::cerr << "Incorrect number of payload options!" << std::endl;
             return 3;
         }
@@ -69,14 +63,15 @@ int main(int argc, char *argv[]) {
     kekmonitors::Config cfg;
     sock.connect(local::stream_protocol::endpoint(
         cfg.parser.get<std::string>("GlobalConfig.socket_path") +
-        kekmonitors::fs::path::separator + "MonitorManager"));
+        "/MonitorManager"));
     sock.send(buffer(cmd.toJson().dump()));
     sock.shutdown(local::stream_protocol::socket::shutdown_send);
     std::vector<char> buf(1024);
     sock.receive(buffer(buf));
     sock.close();
     auto logger = kekmonitors::utils::getLogger("MomanCli");
-    auto resp = kekmonitors::Response::fromString(std::string(buf.begin(), buf.end()));
+    auto resp =
+        kekmonitors::Response::fromString(std::string(buf.begin(), buf.end()));
     std::string strError = kekmonitors::utils::errorToString(resp.getError());
     if (resp.getError() != kekmonitors::ERRORS::OK)
         logger->error(strError);

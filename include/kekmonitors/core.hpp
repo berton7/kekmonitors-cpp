@@ -4,6 +4,11 @@
 #include <kekmonitors/typedefs.hpp>
 #include <mongocxx/instance.hpp>
 #include <spdlog/spdlog.h>
+#ifdef HAVE_STD_FILESYSTEM
+#include <filesystem>
+#else
+#include <boost/filesystem.hpp>
+#endif
 
 #ifndef NDEBUG
 #define KEKMONITORS_DEBUG
@@ -30,6 +35,14 @@
 #define KEKMONITORS_FIRST_CUSTOM_ERROR (kekmonitors::ERRORS::UNKNOWN_ERROR + 1)
 
 namespace kekmonitors {
+
+namespace fs =
+#ifdef HAVE_STD_FILESYSTEM
+    std::filesystem;
+#else
+    boost::filesystem;
+#endif
+namespace ph = std::placeholders;
 
 enum COMMANDS : CommandType {
     PING = 1,

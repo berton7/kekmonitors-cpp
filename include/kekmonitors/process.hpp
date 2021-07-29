@@ -19,12 +19,11 @@ class Process {
 
   public:
     Process() = default;
-    template <typename... Args>
-    Process(std::string className,
-            const fs::path &pythonExecutablePath,
-            const fs::path &monitorExecutablePath, Args... args)
+    template <typename PythonCmd, typename... Args>
+    Process(std::string className, PythonCmd &&cmd, Args... processArgs)
         : _className(std::move(className)),
-          _process(pythonExecutablePath, monitorExecutablePath, args...),
+          _process(std::forward<PythonCmd>(cmd),
+                   std::forward<Args>(processArgs)...),
           _creation(std::time(nullptr)) {
         KDBG("Constructed process");
     };
@@ -34,8 +33,7 @@ class Process {
     std::time_t getCreation() const { return _creation; };
     boost::process::child &getProcess() { return _process; };
     nlohmann::json toJson() const {
-        return
-            {{"Started at", _creation}, {"PID", _process.id()}};
+        return {{"Started at", _creation}, {"PID", _process.id()}};
     };
     const std::string &getClassName() const { return _className; }
 };

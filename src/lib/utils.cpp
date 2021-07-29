@@ -1,7 +1,6 @@
 //
 // Created by berton on 4/28/21.
 //
-#include <boost/filesystem.hpp>
 #include <boost/process.hpp>
 #include <kekmonitors/msg.hpp>
 #include <kekmonitors/utils.hpp>
@@ -94,20 +93,17 @@ fs::path getPythonExecutable() {
     namespace bp = boost::process;
     static fs::path pythonExecutable{};
     if (pythonExecutable.empty()) {
-        for (const auto &possiblePythonPath : {"python", "python3"}) {
-            auto pythonPath = bp::search_path(possiblePythonPath);
-            if (!pythonPath.empty()) {
-                bp::ipstream in;
-                bp::system(pythonPath, "--version", bp::std_out > in,
-                           bp::std_err > bp::null);
-                // "Python 2.7.18"
-                // "Python 3.6.12"
-                std::string version;
-                std::getline(in, version);
-                if (version[7] == '3') {
-                    pythonExecutable = pythonPath;
-                    return pythonExecutable;
-                }
+        for (const auto &pythonExe : {"python", "python3"}) {
+            bp::ipstream in;
+            bp::system(std::string{pythonExe} + " --version", bp::std_out > in,
+                       bp::std_err > bp::null);
+            // "Python 2.7.18"
+            // "Python 3.6.12"
+            std::string version;
+            std::getline(in, version);
+            if (version[7] == '3') {
+                pythonExecutable = pythonExe;
+                return pythonExecutable;
             }
         }
     }

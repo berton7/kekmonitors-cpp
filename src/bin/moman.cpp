@@ -1,6 +1,5 @@
 #include "moman.hpp"
 #include <boost/asio/local/stream_protocol.hpp>
-#include <boost/filesystem.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
 #include <bsoncxx/builder/basic/kvp.hpp>
 #include <bsoncxx/json.hpp>
@@ -8,6 +7,7 @@
 #include <kekmonitors/utils.hpp>
 #include <mongocxx/exception/query_exception.hpp>
 #include <mutex>
+#include <stdexcept>
 #include <utility>
 
 #define REGISTER_CALLBACK(cmd, cb)                                             \
@@ -195,18 +195,22 @@ void MonitorManager::checkProcesses(const error_code &ec) {
     }
     for (auto it = _monitorProcesses.begin(); it != _monitorProcesses.end();) {
         auto mProcess = *it;
-        if (!mProcess.second->getProcess().running()) {
+        auto &process = mProcess.second->getProcess();
+        if (!process.running()) {
             _logger->warn("Monitor {} has exited with code {}", mProcess.first,
-                          mProcess.second->getProcess().exit_code());
+                          process.exit_code());
+            // process.join();
             it = _monitorProcesses.erase(it);
         } else
             ++it;
     }
     for (auto it = _scraperProcesses.begin(); it != _scraperProcesses.end();) {
         auto sProcess = *it;
-        if (!sProcess.second->getProcess().running()) {
+        auto &process = sProcess.second->getProcess();
+        if (!process.running()) {
             _logger->warn("Scraper {} has exited with code {}", sProcess.first,
-                          sProcess.second->getProcess().exit_code());
+                          process.exit_code());
+            // process.join();
             it = _scraperProcesses.erase(it);
         } else
             ++it;
@@ -285,7 +289,7 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
         return;
     }
 
-    const auto pythonExecutable = utils::getPythonExecutable();
+    const auto pythonExecutable = utils::getPythonExecutable().generic_string();
     if (pythonExecutable.empty()) {
         response.setError(genericError);
         response.setInfo("Could not find a correct python version.");
@@ -327,7 +331,7 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
                           .get_utf8()
                           .value.to_string();
     const auto process = std::make_shared<Process>(
-        className, pythonExecutable, path,
+        className, pythonExecutable + " " + path,
         boost::process::std_out > boost::process::null,
         boost::process::std_err > boost::process::null);
     tmpProcesses.insert({className, process});
@@ -341,7 +345,7 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
         auto &tmpProcesses = m == MonitorOrScraper::Monitor
                                  ? _tmpMonitorProcesses
                                  : _tmpScraperProcesses;
-        tmpProcesses.erase("");
+        tmpProcesses.erase(className);
         if (ec) {
             _logger->error(ec.message());
             Response response{Response::badResponse()};
@@ -479,16 +483,18 @@ void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
     Cmd newCmd;
     newCmd.setCmd(COMMANDS::STOP);
     newConn->asyncWriteCmd(
-        newCmd, [cb, &m](const error_code &errc, Connection::Ptr conn) {
+        newCmd,
+        [this, className, cb, m](const error_code &errc, Connection::Ptr conn) {
             if (!errc) {
                 KDBG("Sent STOP");
-                conn->asyncReadResponse([cb](const error_code &errc,
+                conn->asyncReadResponse(
+                    [this, className, cb, m](const error_code &errc,
                                              const Response &response,
                                              Connection::Ptr conn) {
-                    if (errc)
-                        KDBG(errc.message());
-                    cb(response, conn);
-                });
+                        if (errc)
+                            KDBG(errc.message());
+                        cb(response, conn);
+                    });
             } else {
                 KDBG(errc.message());
                 Response response;

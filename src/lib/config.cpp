@@ -1,5 +1,4 @@
 #include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <kekmonitors/config.hpp>
 #include <kekmonitors/utils.hpp>
@@ -40,17 +39,9 @@ const std::string Config::defaultConfig = boost::str(
 
 Config::Config() {
     KDBG("Config constructor");
-    std::string configFolderPath =
-        join((const std::string[]){utils::getLocalKekDir(), "config"},
-             std::string(1, filesystem::path::preferred_separator));
-    std::string configPath =
-        configFolderPath.append(1, filesystem::path::preferred_separator);
-    configPath.append("config.cfg");
+    std::string configPath = utils::getLocalKekDir() + "/config/config.cfg";
     utils::getContentIfFileExistsElseCreate(configPath, defaultConfig);
     pt::read_ini(configPath, parser);
 }
-Config::~Config()
-{
-    KDBG("Config destructor");
-}
+Config::~Config() { KDBG("Config destructor"); }
 } // namespace kekmonitors

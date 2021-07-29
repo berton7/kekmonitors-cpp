@@ -28,7 +28,21 @@ if (NOT spdlog_POPULATED)
 	add_subdirectory(${spdlog_SOURCE_DIR} ${spdlog_BINARY_DIR})
 endif()
 
-find_package(Boost 1.66.0 REQUIRED COMPONENTS system filesystem)
+
+include(CheckIncludeFileCXX)
+CHECK_INCLUDE_FILE_CXX(filesystem HAVE_STD_FILESYSTEM)
+if (HAVE_STD_FILESYSTEM)
+	add_compile_definitions(HAVE_STD_FILESYSTEM)
+	set(REQUIRED_BOOST_PKGS "")
+	set(REQUIRED_BOOST_LIBS "")
+else()
+	set(REQUIRED_BOOST_PKGS system filesystem)
+	set(REQUIRED_BOOST_LIBS Boost::system Boost::filesystem)
+endif()
+
+if (REQUIRED_BOOST_PKGS)
+	find_package(Boost 1.66.0 REQUIRED COMPONENTS ${REQUIRED_BOOST_PKGS})
+endif()
 find_package(libmongocxx REQUIRED)
 find_package(libbsoncxx REQUIRED)
 
@@ -38,7 +52,7 @@ include_directories(${LIBMONGOCXX_INCLUDE_DIRS})
 include_directories(${LIBBSONCXX_INCLUDE_DIRS})
 
 set(KEKMONITORS_SOURCE lib/inotify-cxx.cpp lib/msg.cpp lib/server.cpp lib/utils.cpp lib/config.cpp lib/core.cpp lib/connection.cpp)
-set(KEKMONITORS_LIB_DEPS kekmonitors pthread Boost::system Boost::filesystem ${LIBMONGOCXX_LIBRARIES})
+set(KEKMONITORS_LIB_DEPS kekmonitors pthread ${REQUIRED_BOOST_LIBS} ${LIBMONGOCXX_LIBRARIES})
 
 if (KEKMONITORS_SHARED_LIBS)
 	add_library(kekmonitors SHARED ${KEKMONITORS_SOURCE})
