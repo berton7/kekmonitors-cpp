@@ -300,7 +300,7 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
     auto &registerDb = m == MonitorOrScraper::Monitor ? _monitorRegisterDb
                                                       : _scraperRegisterDb;
 
-    boost::optional<bsoncxx::document::value> optRegisteredMonitor;
+    bsoncxx::stdx::optional<bsoncxx::document::value> optRegisteredMonitor;
     try {
         optRegisteredMonitor =
             registerDb.find_one(bsoncxx::builder::basic::make_document(
@@ -326,10 +326,8 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
     }
 
     // insanity at its best!
-    const auto path = optRegisteredMonitor.value()
-                          .view()["path"]
-                          .get_utf8()
-                          .value.to_string();
+    const auto path = std::string{
+        optRegisteredMonitor.value().view()["path"].get_utf8().value};
     const auto process = std::make_shared<Process>(
         className, pythonExecutable + " " + path,
         boost::process::std_out > boost::process::null,
