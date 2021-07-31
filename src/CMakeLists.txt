@@ -67,5 +67,5 @@ target_link_libraries(moman ${KEKMONITORS_LIB_DEPS})
 add_executable(stopmm bin/stopmm.cpp)
 target_link_libraries(stopmm ${KEKMONITORS_LIB_DEPS})
 
-add_executable(cli bin/moman_cli.cpp)
+add_executable(cli bin/cli.cpp)
 target_link_libraries(cli ${KEKMONITORS_LIB_DEPS})
