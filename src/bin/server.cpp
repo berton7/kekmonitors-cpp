@@ -1,6 +1,6 @@
+#include "server.hpp"
 #include <iostream>
 #include <kekmonitors/msg.hpp>
-#include <kekmonitors/server.hpp>
 #include <kekmonitors/utils.hpp>
 #include <utility>
 

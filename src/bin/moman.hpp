@@ -1,9 +1,9 @@
 #pragma once
+#include "server.hpp"
 #include <boost/asio/local/stream_protocol.hpp>
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/msg.hpp>
 #include <kekmonitors/process.hpp>
-#include <kekmonitors/server.hpp>
 #include <mongocxx/client.hpp>
 #include <mongocxx/instance.hpp>
 #include <string>

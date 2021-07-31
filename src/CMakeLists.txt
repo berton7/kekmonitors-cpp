@@ -51,7 +51,7 @@ include_directories(${PROJECT_SOURCE_DIR}/deps/include)
 include_directories(${LIBMONGOCXX_INCLUDE_DIRS})
 include_directories(${LIBBSONCXX_INCLUDE_DIRS})
 
-set(KEKMONITORS_SOURCE lib/inotify-cxx.cpp lib/msg.cpp lib/server.cpp lib/utils.cpp lib/config.cpp lib/core.cpp lib/connection.cpp)
+set(KEKMONITORS_SOURCE lib/inotify-cxx.cpp lib/msg.cpp lib/utils.cpp lib/config.cpp lib/core.cpp lib/connection.cpp)
 set(KEKMONITORS_LIB_DEPS kekmonitors pthread ${REQUIRED_BOOST_LIBS} ${LIBMONGOCXX_LIBRARIES})
 
 if (KEKMONITORS_SHARED_LIBS)
@@ -61,7 +61,7 @@ else()
 endif()
 add_dependencies(kekmonitors spdlog)
 
-add_executable(moman bin/moman.cpp)
+add_executable(moman bin/moman.cpp bin/server.cpp)
 target_link_libraries(moman ${KEKMONITORS_LIB_DEPS})
 
 add_executable(stopmm bin/stopmm.cpp)
