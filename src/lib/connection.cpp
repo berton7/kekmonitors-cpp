@@ -72,6 +72,8 @@ void Connection::asyncWriteResponse(
                 [shared, cb](const error_code &err, size_t read) {
                     if (err)
                         KDBG(err.message());
+                    shared->socket.shutdown(
+                        local::stream_protocol::socket::shutdown_send);
                     cb(err, shared);
                 });
 }
