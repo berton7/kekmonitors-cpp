@@ -91,8 +91,7 @@ TEST:
                                         logger->info(resp.getInfo());
                                     if (!resp.getPayload().empty())
                                         logger->info(resp.getPayload().dump());
-                                }
-                                else
+                                } else
                                     logger->error(err.message());
                             });
                     else
