@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
                                     std::string errorStr{
                                         utils::errorToString(resp.getError())};
                                     if (resp.getError())
-                                        logger->error(errorStr);
+                                        logger->error("[Error] {}", errorStr);
                                     else
                                         logger->info("[Cmd] {}", errorStr);
                                     if (!resp.getInfo().empty())
