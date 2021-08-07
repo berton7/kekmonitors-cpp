@@ -1,18 +1,14 @@
-#include "kekmonitors/connection.hpp"
-#include "kekmonitors/typedefs.hpp"
+#include <climits>
 #include <iostream>
 #include <kekmonitors/config.hpp>
+#include <kekmonitors/connection.hpp>
+#include <kekmonitors/typedefs.hpp>
 #include <kekmonitors/utils.hpp>
+#include <stdexcept>
 
 using namespace kekmonitors;
 
 int main(int argc, char *argv[]) {
-    Cmd cmd;
-    char *invalidPtr = nullptr;
-    CommandType command;
-    auto intCommand = 0;
-    //    static_cast<uint32_t>(std::strtol(argv[1], &invalidPtr, 10));
-    goto TEST;
     if (argc < 2) {
         std::cout << "Usage: " << argv[0] << " <cmd> [payload]" << std::endl;
         return 1;
@@ -28,17 +24,22 @@ int main(int argc, char *argv[]) {
         std::cout << std::endl;
         return 0;
     }
-    if (*invalidPtr != '\0') {
+
+    CommandType command;
+    try {
+        command = utils::stringToCommand(argv[1]);
+    } catch (std::out_of_range &) {
         try {
-            command = utils::stringToCommand(argv[1]);
-        } catch (std::out_of_range &) {
+            command = static_cast<CommandType>(std::stoi(argv[1]));
+        } catch (std::invalid_argument &) {
             std::cerr << "argv[2] is not a number nor a valid command"
                       << std::endl;
             return 2;
         }
-    } else
-        command = static_cast<CommandType>(intCommand);
+    }
 
+    Cmd cmd;
+    cmd.setCmd(command);
     if (argc > 2) {
         json payload;
         if (!(argc % 2)) {
@@ -60,11 +61,7 @@ int main(int argc, char *argv[]) {
         cmd.setPayload(payload);
     }
     cmd.setCmd(command);
-TEST:
-    cmd.setCmd(COMMANDS::MM_ADD_MONITOR);
-    cmd.setPayload({{"name", "Asd"}});
     auto logger = utils::getLogger("MomanCli");
-    init();
     Config cfg;
     io_context io;
     auto connection = Connection::create(io);
@@ -86,11 +83,13 @@ TEST:
                                     if (resp.getError())
                                         logger->error(errorStr);
                                     else
-                                        logger->info(errorStr);
+                                        logger->info("[Cmd] {}", errorStr);
                                     if (!resp.getInfo().empty())
-                                        logger->info(resp.getInfo());
+                                        logger->info("[Info] {}",
+                                                     resp.getInfo());
                                     if (!resp.getPayload().empty())
-                                        logger->info(resp.getPayload().dump());
+                                        logger->info("[Payload] {}",
+                                                     resp.getPayload().dump());
                                 } else
                                     logger->error(err.message());
                             });
