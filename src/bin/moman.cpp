@@ -388,7 +388,7 @@ void MonitorManager::onAddMonitorScraper(const Cmd &cmd,
                    ERRORS::MM_COULDNT_ADD_MONITOR_SCRAPER),
                connection);
         },
-        std::move(connection));
+        connection);
 }
 
 void MonitorManager::onGetStatus(const MonitorOrScraper m, const Cmd &cmd,
@@ -437,7 +437,7 @@ void MonitorManager::onGetMonitorScraperStatus(const Cmd &cmd,
             response.setPayload(payload);
             cb(response, connection);
         },
-        std::move(connection));
+        connection);
 }
 void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
                             const kekmonitors::UserResponseCallback &&cb,
@@ -517,7 +517,7 @@ void MonitorManager::onStopMonitorScraper(const Cmd &cmd,
                    ERRORS::MM_COULDNT_STOP_MONITOR_SCRAPER),
                connection);
         },
-        std::move(connection));
+        connection);
 }
 } // namespace kekmonitors
 
