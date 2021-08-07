@@ -32,13 +32,16 @@ class Connection : public std::enable_shared_from_this<Connection> {
     ~Connection();
     static Ptr create(io_context &);
 
-    void asyncReadCmd(const CmdCallback &&);
+    void asyncReadCmd(
+        const CmdCallback &&,
+        const steady_timer::duration &timeout = std::chrono::seconds(1));
     void
     asyncWriteResponse(const Response &,
                        const std::function<void(const error_code &, Ptr)> &&);
     void asyncWriteCmd(const Cmd &,
                        std::function<void(const error_code &, Ptr)> &&);
     void asyncReadResponse(
-        std::function<void(const error_code &, const Response &, Ptr)> &&);
+        std::function<void(const error_code &, const Response &, Ptr)> &&,
+        const steady_timer::duration &timeout = std::chrono::seconds(3));
 };
 } // namespace kekmonitors

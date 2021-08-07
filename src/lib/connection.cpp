@@ -2,6 +2,7 @@
 // Created by berton on 09/07/21.
 //
 //#include <boost/asio/local/stream_protocol.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <kekmonitors/connection.hpp>
 
 namespace kekmonitors {
@@ -34,10 +35,10 @@ Connection::Ptr Connection::create(io_context &io) {
     return std::make_shared<Connection>(io);
 }
 
-void Connection::asyncReadCmd(const CmdCallback &&cb) {
-    _timeout.expires_after(std::chrono::seconds(1));
-    _timeout.async_wait(
-        std::bind(&Connection::onTimeout, this, ph::_1));
+void Connection::asyncReadCmd(const CmdCallback &&cb,
+                              const steady_timer::duration &timeout) {
+    _timeout.expires_after(timeout);
+    _timeout.async_wait(std::bind(&Connection::onTimeout, this, ph::_1));
     auto shared = shared_from_this();
     async_read(socket, buffer(_buffer),
                [shared, this, cb](const error_code &err, size_t read) {
@@ -89,10 +90,10 @@ void Connection::asyncWriteCmd(
 }
 
 void Connection::asyncReadResponse(
-    std::function<void(const error_code &, const Response &, Ptr)> &&cb) {
-    _timeout.expires_after(std::chrono::seconds(1));
-    _timeout.async_wait(
-        std::bind(&Connection::onTimeout, this, ph::_1));
+    std::function<void(const error_code &, const Response &, Ptr)> &&cb,
+    const steady_timer::duration &timeout) {
+    _timeout.expires_after(timeout);
+    _timeout.async_wait(std::bind(&Connection::onTimeout, this, ph::_1));
     auto shared = shared_from_this();
     async_read(socket, buffer(_buffer),
                [shared, this, cb](const error_code &err, size_t read) {
