@@ -13,7 +13,6 @@ int main(int argc, char *argv[]) {
         std::cout << "Usage: " << argv[0] << " <cmd> [payload]" << std::endl;
         return 1;
     }
-    init();
     if (!std::strcmp(argv[1], "--list-cmd")) {
         for (CommandType i = COMMANDS::PING;
              i < KEKMONITORS_FIRST_CUSTOM_COMMAND; i++) {
@@ -26,6 +25,8 @@ int main(int argc, char *argv[]) {
     }
 
     CommandType command;
+    initMaps();
+    initDebugLogger();
     try {
         command = utils::stringToCommand(argv[1]);
     } catch (std::out_of_range &) {
