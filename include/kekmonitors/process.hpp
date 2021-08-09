@@ -19,11 +19,10 @@ class Process {
 
   public:
     Process() = default;
-    template <typename PythonCmd, typename... Args>
-    Process(std::string className, PythonCmd &&cmd, Args... processArgs)
+    template <typename... Args>
+    Process(std::string className, Args... processArgs)
         : _className(std::move(className)),
-          _process(std::forward<PythonCmd>(cmd),
-                   std::forward<Args>(processArgs)...),
+          _process(std::forward<Args>(processArgs)...),
           _creation(std::time(nullptr)) {
         KDBG("Constructed process");
     };
