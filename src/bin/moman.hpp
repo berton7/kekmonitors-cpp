@@ -17,6 +17,29 @@ typedef struct {
     std::thread watchThread;
 } FileWatcher;
 
+class StoredObject {
+  public:
+    std::shared_ptr<Process> p_process{nullptr};
+    std::shared_ptr<local::stream_protocol::endpoint> p_socket{nullptr};
+    std::string p_className;
+    bool p_isBeingAdded{false};
+    bool p_isBeingStopped{false};
+
+    StoredObject(std::string className) : p_className(std::move(className)){};
+    StoredObject(StoredObject &&other)
+        : p_process{std::move(other.p_process)}, p_socket{std::move(
+                                                     other.p_socket)},
+          p_className{std::move(other.p_className)},
+          p_isBeingAdded(std::move(other.p_isBeingAdded)),
+          p_isBeingStopped(std::move(other.p_isBeingStopped)) {
+        other.p_process = nullptr;
+        other.p_socket = nullptr;
+        other.p_className = nullptr;
+        other.p_isBeingAdded = false;
+        other.p_isBeingStopped = false;
+    }
+};
+
 class MonitorManager {
   private:
     io_context &_io;
@@ -30,6 +53,9 @@ class MonitorManager {
     mongocxx::collection _scraperRegisterDb{};
     std::atomic<bool> _fileWatcherStop{false};
     FileWatcher _fileWatcher;
+    std::mutex _socketLock{};
+    std::unordered_map<std::string, StoredObject> _storedMonitors;
+    std::unordered_map<std::string, StoredObject> _storedScrapers;
     std::unordered_map<std::string, std::shared_ptr<Process>>
         _monitorProcesses{};
     std::unordered_map<std::string, std::shared_ptr<Process>>
@@ -38,7 +64,6 @@ class MonitorManager {
         _scraperProcesses{};
     std::unordered_map<std::string, std::shared_ptr<Process>>
         _tmpScraperProcesses{};
-    std::mutex _socketLock{};
     std::unordered_map<std::string, local::stream_protocol::endpoint>
         _monitorSockets{};
     std::unordered_map<std::string, local::stream_protocol::endpoint>

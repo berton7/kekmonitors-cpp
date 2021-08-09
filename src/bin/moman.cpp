@@ -5,6 +5,7 @@
 #include <bsoncxx/json.hpp>
 #include <iostream>
 #include <kekmonitors/utils.hpp>
+#include <memory>
 #include <mongocxx/exception/query_exception.hpp>
 #include <mutex>
 #include <stdexcept>
@@ -152,22 +153,34 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
                          {std::string{"Monitor."}, std::string{"Scraper."}}) {
                         const auto typeLen = type.length();
                         if (socketName.substr(0, typeLen) == type) {
-                            auto &map = type == "Monitor." ? _monitorSockets
-                                                           : _scraperSockets;
+                            auto &map = type == "Monitor." ? _storedMonitors
+                                                           : _storedScrapers;
                             std::string className{socketName.substr(
                                 typeLen, socketName.length() - typeLen)};
+                            const auto it = map.find(className);
                             if (eventType == "IN_CREATE") {
                                 std::lock_guard lock(_socketLock);
                                 KDBG("Socket was created, className: " +
                                      className);
-                                map.emplace(std::make_pair(
-                                    className, local::stream_protocol::endpoint(
-                                                   socketFullPath)));
-                            } else if (map.find(className) != map.end()) {
+                                auto socket = std::make_shared<
+                                        local::stream_protocol::endpoint>(
+                                        socketFullPath);
+                                if (it != map.end()) {
+                                    it->second.p_socket = socket;
+                                }
+                                else
+                                {
+                                    StoredObject obj(className);
+                                    obj.p_socket = socket;
+                                    map.emplace(std::make_pair(className,
+                                                               std::move(obj)));
+                                }
+                            } else if (it != map.end()) {
                                 std::lock_guard lock(_socketLock);
                                 KDBG("Socket was destroyed, className: " +
                                      className);
-                                map.erase(className);
+                                if (it->second.p_socket)
+                                    it->second.p_socket = nullptr;
                             }
                             break;
                         }
