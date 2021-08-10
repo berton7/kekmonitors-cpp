@@ -1,4 +1,5 @@
 #include "moman.hpp"
+#include "kekmonitors/core.hpp"
 #include <boost/asio/local/stream_protocol.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
 #include <bsoncxx/builder/basic/kvp.hpp>
@@ -9,6 +10,8 @@
 #include <mongocxx/exception/query_exception.hpp>
 #include <mutex>
 #include <stdexcept>
+#include <string>
+#include <unordered_map>
 #include <utility>
 
 #define REGISTER_CALLBACK(cmd, cb)                                             \
@@ -26,6 +29,20 @@
                        ph::_3)                                                 \
     }
 
+#define REMOVE_STORED_SOCKET(map, stored)                                      \
+    do {                                                                       \
+        stored.p_socket = nullptr;                                             \
+        if (!stored.p_process)                                                 \
+            map.erase(stored.p_className);                                     \
+    } while (0)
+
+#define REMOVE_STORED_PROCESS(map, stored)                                     \
+    do {                                                                       \
+        stored.p_process = nullptr;                                            \
+        if (!stored.p_socket)                                                  \
+            map.erase(stored.p_className);                                     \
+    } while (0)
+
 using namespace boost::asio;
 
 static inline bool is_socket(const std::string &path) {
@@ -35,6 +52,36 @@ static inline bool is_socket(const std::string &path) {
 }
 
 namespace kekmonitors {
+
+template <typename Map>
+void removeStoredSocket(Map &map, StoredObject &stored) {
+    stored.p_socket = nullptr;
+    if (!stored.p_process)
+        map.erase(stored.p_className);
+}
+
+template <typename Map>
+void removeStoredProcess(Map &map, StoredObject &stored) {
+    stored.p_process = nullptr;
+    if (!stored.p_socket)
+        map.erase(stored.p_className);
+}
+
+template <typename Map, typename Iterator>
+void removeStoredSocket(Map &map, Iterator &it) {
+    auto &stored = it->second;
+    stored.p_socket = nullptr;
+    if (!stored.p_process)
+        map.erase(it);
+}
+
+template <typename Map, typename Iterator>
+void removeStoredProcess(Map &map, Iterator &it) {
+    auto &stored = it->second;
+    stored.p_process = nullptr;
+    if (!stored.p_socket)
+        map.erase(it);
+}
 
 MonitorScraperCompletion::MonitorScraperCompletion(
     io_service &io, MonitorManager *moman, Cmd cmd,
@@ -149,42 +196,8 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
                 if (got_event &&
                     (eventType == "IN_CREATE" && is_socket(socketFullPath) ||
                      eventType == "IN_DELETE")) {
-                    for (const auto &type :
-                         {std::string{"Monitor."}, std::string{"Scraper."}}) {
-                        const auto typeLen = type.length();
-                        if (socketName.substr(0, typeLen) == type) {
-                            auto &map = type == "Monitor." ? _storedMonitors
-                                                           : _storedScrapers;
-                            std::string className{socketName.substr(
-                                typeLen, socketName.length() - typeLen)};
-                            const auto it = map.find(className);
-                            if (eventType == "IN_CREATE") {
-                                std::lock_guard lock(_socketLock);
-                                KDBG("Socket was created, className: " +
-                                     className);
-                                auto socket = std::make_shared<
-                                        local::stream_protocol::endpoint>(
-                                        socketFullPath);
-                                if (it != map.end()) {
-                                    it->second.p_socket = socket;
-                                }
-                                else
-                                {
-                                    StoredObject obj(className);
-                                    obj.p_socket = socket;
-                                    map.emplace(std::make_pair(className,
-                                                               std::move(obj)));
-                                }
-                            } else if (it != map.end()) {
-                                std::lock_guard lock(_socketLock);
-                                KDBG("Socket was destroyed, className: " +
-                                     className);
-                                if (it->second.p_socket)
-                                    it->second.p_socket = nullptr;
-                            }
-                            break;
-                        }
-                    }
+                    updateSockets(MonitorOrScraper::Monitor, socketName, eventType, socketFullPath);
+                    updateSockets(MonitorOrScraper::Scraper, socketName, eventType, socketFullPath);
                 }
             }
         }
@@ -194,40 +207,84 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
         std::bind(&MonitorManager::checkProcesses, this, ph::_1));
 }
 
+void MonitorManager::updateSockets(MonitorOrScraper m, const std::string &socketName,
+                                   const std::string &eventType,
+                                   const std::string &socketFullPath) {
+    std::string type{m == MonitorOrScraper::Monitor ? "Monitor." : "Scraper."};
+    const auto typeLen = type.length();
+    if (socketName.substr(0, typeLen) == type) {
+        auto &map =
+            m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
+        std::string className{
+            socketName.substr(typeLen, socketName.length() - typeLen)};
+        const auto it = map.find(className);
+        if (eventType == "IN_CREATE") {
+            std::lock_guard lock(_socketLock);
+            KDBG("Socket was created, className: " + className);
+            if (it != map.end()) {
+                it->second.p_socket =
+                    std::make_unique<local::stream_protocol::endpoint>(
+                        socketFullPath);
+            } else {
+                StoredObject obj(className);
+                obj.p_socket =
+                    std::make_unique<local::stream_protocol::endpoint>(
+                        socketFullPath);
+                map.emplace(std::make_pair(className, std::move(obj)));
+            }
+        } else if (it != map.end()) {
+            std::lock_guard lock(_socketLock);
+            KDBG("Socket was destroyed, className: " + className);
+            removeStoredSocket(map, it);
+        }
+    }
+}
+
+void terminateProcesses(
+    std::unordered_map<std::string, StoredObject> &storedObjects) {
+    for (auto &it : storedObjects) {
+        auto &storedProcess = it.second.p_process;
+        if (storedProcess) {
+            auto &process = storedProcess->getProcess();
+            if (process.running())
+                process.terminate();
+            // removeStoredProcess(storedObjects, it.second);
+            /* should not be necessary since we are destructing */
+        }
+    }
+}
+
 MonitorManager::~MonitorManager() {
-    for (auto &processes : {_monitorProcesses, _scraperProcesses})
-        for (auto &process : _monitorProcesses)
-            if (process.second->getProcess().running())
-                process.second->getProcess().terminate();
+    terminateProcesses(_storedMonitors);
+    terminateProcesses(_storedScrapers);
     _fileWatcher.watchThread.join();
+}
+
+void checkProcessesMap(
+    std::shared_ptr<spdlog::logger> &logger,
+    std::unordered_map<std::string, StoredObject> &storedObjects) {
+    for (auto it = storedObjects.begin(); it != storedObjects.end();) {
+        auto &storedProcess = it->second.p_process;
+        if (storedProcess) {
+            auto &process = storedProcess->getProcess();
+            if (!process.running()) {
+                logger->warn("Monitor {} has exited with code {}", it->first,
+                             process.exit_code());
+                // process.join();
+                removeStoredProcess(storedObjects, it);
+            } else
+                ++it;
+        } else
+            ++it;
+    }
 }
 
 void MonitorManager::checkProcesses(const error_code &ec) {
     if (ec) {
         return;
     }
-    for (auto it = _monitorProcesses.begin(); it != _monitorProcesses.end();) {
-        auto mProcess = *it;
-        auto &process = mProcess.second->getProcess();
-        if (!process.running()) {
-            _logger->warn("Monitor {} has exited with code {}", mProcess.first,
-                          process.exit_code());
-            // process.join();
-            it = _monitorProcesses.erase(it);
-        } else
-            ++it;
-    }
-    for (auto it = _scraperProcesses.begin(); it != _scraperProcesses.end();) {
-        auto sProcess = *it;
-        auto &process = sProcess.second->getProcess();
-        if (!process.running()) {
-            _logger->warn("Scraper {} has exited with code {}", sProcess.first,
-                          process.exit_code());
-            // process.join();
-            it = _scraperProcesses.erase(it);
-        } else
-            ++it;
-    }
+    checkProcessesMap(_logger, _storedMonitors);
+    checkProcessesMap(_logger, _storedScrapers);
     _processCheckTimer.expires_after(std::chrono::milliseconds(500));
     _processCheckTimer.async_wait(
         std::bind(&MonitorManager::checkProcesses, this, ph::_1));
@@ -277,29 +334,30 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
         return;
     }
 
-    auto &processes =
-        m == MonitorOrScraper::Monitor ? _monitorProcesses : _scraperProcesses;
-    auto &tmpProcesses = m == MonitorOrScraper::Monitor ? _tmpMonitorProcesses
-                                                        : _tmpScraperProcesses;
+    auto &storedObjects =
+        m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
 
-    if (processes.find(className) != processes.end()) {
-        response.setError(genericError);
-        response.setInfo(
-            std::string{
-                (m == MonitorOrScraper::Monitor ? "Monitor" : "Scraper")} +
-            " already started.");
-        cb(response, connection);
-        return;
-    }
+    auto it = storedObjects.find(className);
+    if (it != storedObjects.end()) {
+        if (it->second.p_process) {
+            response.setError(genericError);
+            response.setInfo(
+                std::string{
+                    (m == MonitorOrScraper::Monitor ? "Monitor" : "Scraper")} +
+                " already started.");
+            cb(response, connection);
+            return;
+        }
 
-    else if (tmpProcesses.find(className) != tmpProcesses.end()) {
-        response.setError(genericError);
-        response.setInfo(
-            std::string{
-                (m == MonitorOrScraper::Monitor ? "Monitor" : "Scraper")} +
-            " still being processed.");
-        cb(response, connection);
-        return;
+        else if (it->second.p_isBeingAdded) {
+            response.setError(genericError);
+            response.setInfo(
+                std::string{
+                    (m == MonitorOrScraper::Monitor ? "Monitor" : "Scraper")} +
+                " still being processed.");
+            cb(response, connection);
+            return;
+        }
     }
 
     const auto pythonExecutable = utils::getPythonExecutable().generic_string();
@@ -341,22 +399,26 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
     // insanity at its best!
     const auto path = std::string{
         optRegisteredMonitor.value().view()["path"].get_utf8().value};
-    const auto process = std::make_shared<Process>(
-        className, pythonExecutable + " " + path,
-        boost::process::std_out > boost::process::null,
-        boost::process::std_err > boost::process::null);
-    tmpProcesses.insert({className, process});
+
+    if (it != storedObjects.end()) {
+        it->second.p_process = std::make_unique<Process>(
+            className, pythonExecutable + " " + path,
+            boost::process::std_out > boost::process::null,
+            boost::process::std_err > boost::process::null);
+    } else {
+        StoredObject obj{className};
+        obj.p_process = std::make_unique<Process>(
+            className, pythonExecutable + " " + path,
+            boost::process::std_out > boost::process::null,
+            boost::process::std_err > boost::process::null);
+        storedObjects.emplace(std::make_pair(className, std::move(obj)));
+    }
 
     auto delayTimer =
         std::make_shared<steady_timer>(_io, std::chrono::seconds(2));
 
     delayTimer->async_wait([=](const std::error_code &ec) {
         delayTimer.get(); // capture delayTimer
-        const std::string &className = process->getClassName();
-        auto &tmpProcesses = m == MonitorOrScraper::Monitor
-                                 ? _tmpMonitorProcesses
-                                 : _tmpScraperProcesses;
-        tmpProcesses.erase(className);
         if (ec) {
             _logger->error(ec.message());
             Response response{Response::badResponse()};
@@ -367,25 +429,28 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
             cb(response, connection);
             return;
         }
-        if (process->getProcess().running()) {
-            auto &_processes = m == MonitorOrScraper::Monitor
-                                   ? _monitorProcesses
-                                   : _scraperProcesses;
-            _processes.insert({className, process});
+        auto &storedObjects =
+            m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
+        auto it = storedObjects.find(className);
+        StoredObject &storedObject = it->second;
+        storedObject.p_isBeingAdded = false;
+        if (storedObject.p_process->getProcess().running()) {
             _logger->info("Correctly added {} {}",
                           m == MonitorOrScraper::Monitor ? "monitor "
                                                          : "scraper ",
-                          process->getClassName());
+                          className);
             cb(Response::okResponse(), connection);
             return;
         }
         Response response;
         const std::string msg{
             "Process exited too soon. Exit code: " +
-            std::to_string(process->getProcess().exit_code()) + "."};
+            std::to_string(storedObject.p_process->getProcess().exit_code()) +
+            "."};
         response.setError(genericError);
         response.setInfo(msg);
         _logger->info(msg);
+        removeStoredProcess(storedObjects, it);
         cb(response, connection);
     });
 }
@@ -412,20 +477,19 @@ void MonitorManager::onGetStatus(const MonitorOrScraper m, const Cmd &cmd,
     json monitoredProcesses = json::object();
     json monitoredSockets = json::object();
 
-    auto &processes =
-        m == MonitorOrScraper::Monitor ? _monitorProcesses : _scraperProcesses;
-    for (const auto &process : processes) {
-        monitoredProcesses[process.first] = process.second->toJson();
-    }
-    payload["monitored_processes"] = monitoredProcesses;
-
-    auto &sockets =
-        m == MonitorOrScraper::Monitor ? _monitorSockets : _scraperSockets;
-    if (!sockets.empty()) {
-        for (const auto &socket : sockets) {
-            monitoredSockets[socket.first] = socket.second.path();
+    for (const auto &it :
+         m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers) {
+        const auto &storedObject = it.second;
+        if (storedObject.p_process) {
+            monitoredProcesses[storedObject.p_className] =
+                storedObject.p_process->toJson();
+        }
+        if (storedObject.p_socket) {
+            monitoredSockets[storedObject.p_className] =
+                storedObject.p_socket->path();
         }
     }
+    payload["monitored_processes"] = monitoredProcesses;
     payload["monitored_sockets"] = monitoredSockets;
 
     response.setPayload(payload);
@@ -475,10 +539,12 @@ void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
         return;
     }
 
-    auto &sockets =
-        m == MonitorOrScraper::Monitor ? _monitorSockets : _scraperSockets;
+    std::lock_guard lock(_socketLock);
+    auto &storedObjects =
+        m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
 
-    if (sockets.find(className) == sockets.end()) {
+    auto it = storedObjects.find(className);
+    if (it == storedObjects.end() || !it->second.p_socket) {
         response.setError(ERRORS::SOCKET_DOESNT_EXIST);
         response.setInfo(std::string{m == MonitorOrScraper::Monitor
                                          ? "Monitor "
@@ -488,18 +554,18 @@ void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
         return;
     }
 
-    auto &ep = sockets.at(className);
+    auto &ep = it->second.p_socket;
     auto newConn = Connection::create(_io);
-    newConn->socket.connect(ep);
+    newConn->socket.connect(*ep);
     Cmd newCmd;
     newCmd.setCmd(COMMANDS::STOP);
     newConn->asyncWriteCmd(
         newCmd,
-        [this, className, cb, m](const error_code &errc, Connection::Ptr conn) {
+        [=](const error_code &errc, Connection::Ptr conn) {
             if (!errc) {
                 KDBG("Sent STOP");
                 conn->asyncReadResponse(
-                    [this, className, cb, m](const error_code &errc,
+                    [=](const error_code &errc,
                                              const Response &response,
                                              Connection::Ptr conn) {
                         if (errc)

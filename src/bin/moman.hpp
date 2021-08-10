@@ -19,8 +19,8 @@ typedef struct {
 
 class StoredObject {
   public:
-    std::shared_ptr<Process> p_process{nullptr};
-    std::shared_ptr<local::stream_protocol::endpoint> p_socket{nullptr};
+    std::unique_ptr<Process> p_process{nullptr};
+    std::unique_ptr<local::stream_protocol::endpoint> p_socket{nullptr};
     std::string p_className;
     bool p_isBeingAdded{false};
     bool p_isBeingStopped{false};
@@ -34,7 +34,7 @@ class StoredObject {
           p_isBeingStopped(std::move(other.p_isBeingStopped)) {
         other.p_process = nullptr;
         other.p_socket = nullptr;
-        other.p_className = nullptr;
+        other.p_className = "";
         other.p_isBeingAdded = false;
         other.p_isBeingStopped = false;
     }
@@ -56,6 +56,7 @@ class MonitorManager {
     std::mutex _socketLock{};
     std::unordered_map<std::string, StoredObject> _storedMonitors;
     std::unordered_map<std::string, StoredObject> _storedScrapers;
+    /*
     std::unordered_map<std::string, std::shared_ptr<Process>>
         _monitorProcesses{};
     std::unordered_map<std::string, std::shared_ptr<Process>>
@@ -68,8 +69,12 @@ class MonitorManager {
         _monitorSockets{};
     std::unordered_map<std::string, local::stream_protocol::endpoint>
         _scraperSockets{};
+        */
 
     void checkProcesses(const error_code &);
+    void updateSockets(MonitorOrScraper m,
+                   const std::string &socketName, const std::string &eventType,
+                   const std::string &socketFullPath);
 
   public:
     MonitorManager() = delete;
