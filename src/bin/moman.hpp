@@ -1,6 +1,5 @@
 #pragma once
 #include "server.hpp"
-#include <boost/asio/local/stream_protocol.hpp>
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/msg.hpp>
 #include <kekmonitors/process.hpp>
@@ -11,11 +10,12 @@
 
 namespace kekmonitors {
 
-typedef struct {
+class FileWatcher {
+  public:
+    FileWatcher(io_context &io) : inotify(io) {}
     Inotify inotify;
     std::vector<InotifyWatch> watches;
-    std::thread watchThread;
-} FileWatcher;
+};
 
 class StoredObject {
   public:
@@ -54,9 +54,10 @@ class MonitorManager {
     mongocxx::collection _scraperRegisterDb{};
     std::atomic<bool> _fileWatcherStop{false};
     FileWatcher _fileWatcher;
-    std::mutex _socketLock{};
     std::unordered_map<std::string, StoredObject> _storedMonitors;
     std::unordered_map<std::string, StoredObject> _storedScrapers;
+
+    void onInotifyUpdate(const error_code &);
 
     void checkProcesses(const error_code &);
     void updateSockets(MonitorOrScraper, const std::string &eventType,

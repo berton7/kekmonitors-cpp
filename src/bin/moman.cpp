@@ -1,6 +1,8 @@
 #include "moman.hpp"
 #include "kekmonitors/core.hpp"
 #include <boost/asio/local/stream_protocol.hpp>
+#include <boost/system/detail/errc.hpp>
+#include <boost/system/detail/error_category.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
 #include <bsoncxx/builder/basic/kvp.hpp>
 #include <bsoncxx/json.hpp>
@@ -28,8 +30,6 @@
         cmd, std::bind(cb, this, MonitorOrScraper::Scraper, ph::_1, ph::_2,    \
                        ph::_3)                                                 \
     }
-
-#define THREAD_SAFE std::lock_guard lock(_socketLock);
 
 using namespace boost::asio;
 
@@ -108,7 +108,8 @@ void MonitorScraperCompletion::checkForCompletion(const Response &response) {
 }
 
 MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
-    : _io(io), _processCheckTimer(io, std::chrono::milliseconds(500)),
+    : _io(io), _fileWatcher(io),
+      _processCheckTimer(io, std::chrono::milliseconds(500)),
       _config(std::move(config)) {
     if (!_config)
         _config = std::make_shared<Config>();
@@ -154,36 +155,44 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
         _config->parser.get<std::string>("GlobalConfig.socket_path"),
         IN_ALL_EVENTS);
     _fileWatcher.inotify.Add(_fileWatcher.watches[0]);
-    _fileWatcher.watchThread = std::thread([&] {
-        while (!_fileWatcherStop) {
-            _fileWatcher.inotify.WaitForEvents();
-            size_t count = _fileWatcher.inotify.GetEventCount();
-            for (; count > 0; --count) {
-                InotifyEvent event;
-                bool got_event = _fileWatcher.inotify.GetEvent(&event);
-                const auto &socketName = event.GetName();
-                std::string eventType;
-                event.DumpTypes(eventType);
-                const auto socketFullPath = event.GetWatch()->GetPath() +
-                                            fs::path::preferred_separator +
-                                            socketName;
-                if (got_event &&
-                    (eventType == "IN_CREATE" && is_socket(socketFullPath) ||
-                     eventType == "IN_DELETE")) {
-                    THREAD_SAFE
-
-                    updateSockets(MonitorOrScraper::Monitor, eventType, socketName, socketFullPath);
-                    updateSockets(MonitorOrScraper::Scraper, eventType, socketName, socketFullPath);
-                }
-            }
-        }
-    });
+    _fileWatcher.inotify.AsyncWaitForEvents(
+        std::bind(&MonitorManager::onInotifyUpdate, this, ph::_1));
 
     _processCheckTimer.async_wait(
         std::bind(&MonitorManager::checkProcesses, this, ph::_1));
 }
 
-void MonitorManager::updateSockets(MonitorOrScraper m, const std::string &eventType, const std::string &socketName,
+void MonitorManager::onInotifyUpdate(const error_code &errc) {
+    if (!errc) {
+        size_t count = _fileWatcher.inotify.GetEventCount();
+        for (; count > 0; --count) {
+            InotifyEvent event;
+            bool got_event = _fileWatcher.inotify.GetEvent(&event);
+            const auto &socketName = event.GetName();
+            std::string eventType;
+            event.DumpTypes(eventType);
+            const auto socketFullPath = event.GetWatch()->GetPath() +
+                                        fs::path::preferred_separator +
+                                        socketName;
+            if (got_event &&
+                (eventType == "IN_CREATE" && is_socket(socketFullPath) ||
+                 eventType == "IN_DELETE")) {
+                updateSockets(MonitorOrScraper::Monitor, eventType, socketName,
+                              socketFullPath);
+                updateSockets(MonitorOrScraper::Scraper, eventType, socketName,
+                              socketFullPath);
+            }
+        }
+        _fileWatcher.inotify.AsyncWaitForEvents(
+            std::bind(&MonitorManager::onInotifyUpdate, this, ph::_1));
+    } else {
+        KDBG(errc.message());
+    }
+}
+
+void MonitorManager::updateSockets(MonitorOrScraper m,
+                                   const std::string &eventType,
+                                   const std::string &socketName,
                                    const std::string &socketFullPath) {
     std::string type{m == MonitorOrScraper::Monitor ? "Monitor." : "Scraper."};
     const auto typeLen = type.length();
@@ -230,7 +239,6 @@ void terminateProcesses(
 MonitorManager::~MonitorManager() {
     terminateProcesses(_storedMonitors);
     terminateProcesses(_storedScrapers);
-    _fileWatcher.watchThread.join();
 }
 
 void checkProcessesMap(
@@ -253,8 +261,6 @@ void checkProcessesMap(
 }
 
 void MonitorManager::checkProcesses(const error_code &ec) {
-    THREAD_SAFE
-
     if (ec) {
         return;
     }
@@ -270,7 +276,7 @@ void MonitorManager::shutdown(const Cmd &cmd, const UserResponseCallback &&cb,
     _logger->info("Shutting down...");
     KDBG("Received shutdown");
     _processCheckTimer.cancel();
-    _fileWatcherStop = true;
+    _fileWatcher.inotify.Close();
     _unixServer->shutdown();
     cb(Response::okResponse(), connection);
 }
@@ -286,8 +292,6 @@ void MonitorManager::onPing(const Cmd &cmd, const UserResponseCallback &&cb,
 void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
                            const UserResponseCallback &&cb,
                            Connection::Ptr connection) {
-    THREAD_SAFE
-
     Response response;
     ERRORS genericError = m == MonitorOrScraper::Monitor
                               ? ERRORS::MM_COULDNT_ADD_MONITOR
@@ -395,8 +399,6 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
         std::make_shared<steady_timer>(_io, std::chrono::seconds(2));
 
     delayTimer->async_wait([=](const std::error_code &ec) {
-        THREAD_SAFE
-
         delayTimer.get(); // capture delayTimer
         if (ec) {
             _logger->error(ec.message());
@@ -451,8 +453,6 @@ void MonitorManager::onAddMonitorScraper(const Cmd &cmd,
 void MonitorManager::onGetStatus(const MonitorOrScraper m, const Cmd &cmd,
                                  const UserResponseCallback &&cb,
                                  Connection::Ptr connection) {
-    THREAD_SAFE
-    
     Response response;
     json payload;
     json monitoredProcesses = json::object();
@@ -497,11 +497,10 @@ void MonitorManager::onGetMonitorScraperStatus(const Cmd &cmd,
         },
         connection);
 }
+
 void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
                             const kekmonitors::UserResponseCallback &&cb,
                             Connection::Ptr connection) {
-    THREAD_SAFE
-    
     Response response;
 
     if (cmd.getPayload() == nullptr) {
@@ -542,18 +541,16 @@ void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
     Cmd newCmd;
     newCmd.setCmd(COMMANDS::STOP);
     newConn->asyncWriteCmd(
-        newCmd,
-        [=](const error_code &errc, Connection::Ptr conn) {
+        newCmd, [=](const error_code &errc, Connection::Ptr conn) {
             if (!errc) {
                 KDBG("Sent STOP");
-                conn->asyncReadResponse(
-                    [=](const error_code &errc,
-                                             const Response &response,
-                                             Connection::Ptr conn) {
-                        if (errc)
-                            KDBG(errc.message());
-                        cb(response, conn);
-                    });
+                conn->asyncReadResponse([=](const error_code &errc,
+                                            const Response &response,
+                                            Connection::Ptr conn) {
+                    if (errc)
+                        KDBG(errc.message());
+                    cb(response, conn);
+                });
             } else {
                 KDBG(errc.message());
                 Response response;
