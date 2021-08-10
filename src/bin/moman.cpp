@@ -29,19 +29,7 @@
                        ph::_3)                                                 \
     }
 
-#define REMOVE_STORED_SOCKET(map, stored)                                      \
-    do {                                                                       \
-        stored.p_socket = nullptr;                                             \
-        if (!stored.p_process)                                                 \
-            map.erase(stored.p_className);                                     \
-    } while (0)
-
-#define REMOVE_STORED_PROCESS(map, stored)                                     \
-    do {                                                                       \
-        stored.p_process = nullptr;                                            \
-        if (!stored.p_socket)                                                  \
-            map.erase(stored.p_className);                                     \
-    } while (0)
+#define THREAD_SAFE std::lock_guard lock(_socketLock);
 
 using namespace boost::asio;
 
@@ -53,26 +41,12 @@ static inline bool is_socket(const std::string &path) {
 
 namespace kekmonitors {
 
-template <typename Map>
-void removeStoredSocket(Map &map, StoredObject &stored) {
-    stored.p_socket = nullptr;
-    if (!stored.p_process)
-        map.erase(stored.p_className);
-}
-
-template <typename Map>
-void removeStoredProcess(Map &map, StoredObject &stored) {
-    stored.p_process = nullptr;
-    if (!stored.p_socket)
-        map.erase(stored.p_className);
-}
-
 template <typename Map, typename Iterator>
 void removeStoredSocket(Map &map, Iterator &it) {
     auto &stored = it->second;
     stored.p_socket = nullptr;
     if (!stored.p_process)
-        map.erase(it);
+        it = map.erase(it);
 }
 
 template <typename Map, typename Iterator>
@@ -80,7 +54,7 @@ void removeStoredProcess(Map &map, Iterator &it) {
     auto &stored = it->second;
     stored.p_process = nullptr;
     if (!stored.p_socket)
-        map.erase(it);
+        it = map.erase(it);
 }
 
 MonitorScraperCompletion::MonitorScraperCompletion(
@@ -196,8 +170,10 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
                 if (got_event &&
                     (eventType == "IN_CREATE" && is_socket(socketFullPath) ||
                      eventType == "IN_DELETE")) {
-                    updateSockets(MonitorOrScraper::Monitor, socketName, eventType, socketFullPath);
-                    updateSockets(MonitorOrScraper::Scraper, socketName, eventType, socketFullPath);
+                    THREAD_SAFE
+
+                    updateSockets(MonitorOrScraper::Monitor, eventType, socketName, socketFullPath);
+                    updateSockets(MonitorOrScraper::Scraper, eventType, socketName, socketFullPath);
                 }
             }
         }
@@ -207,8 +183,7 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
         std::bind(&MonitorManager::checkProcesses, this, ph::_1));
 }
 
-void MonitorManager::updateSockets(MonitorOrScraper m, const std::string &socketName,
-                                   const std::string &eventType,
+void MonitorManager::updateSockets(MonitorOrScraper m, const std::string &eventType, const std::string &socketName,
                                    const std::string &socketFullPath) {
     std::string type{m == MonitorOrScraper::Monitor ? "Monitor." : "Scraper."};
     const auto typeLen = type.length();
@@ -217,9 +192,8 @@ void MonitorManager::updateSockets(MonitorOrScraper m, const std::string &socket
             m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
         std::string className{
             socketName.substr(typeLen, socketName.length() - typeLen)};
-        const auto it = map.find(className);
+        auto it = map.find(className);
         if (eventType == "IN_CREATE") {
-            std::lock_guard lock(_socketLock);
             KDBG("Socket was created, className: " + className);
             if (it != map.end()) {
                 it->second.p_socket =
@@ -233,7 +207,6 @@ void MonitorManager::updateSockets(MonitorOrScraper m, const std::string &socket
                 map.emplace(std::make_pair(className, std::move(obj)));
             }
         } else if (it != map.end()) {
-            std::lock_guard lock(_socketLock);
             KDBG("Socket was destroyed, className: " + className);
             removeStoredSocket(map, it);
         }
@@ -280,6 +253,8 @@ void checkProcessesMap(
 }
 
 void MonitorManager::checkProcesses(const error_code &ec) {
+    THREAD_SAFE
+
     if (ec) {
         return;
     }
@@ -311,6 +286,8 @@ void MonitorManager::onPing(const Cmd &cmd, const UserResponseCallback &&cb,
 void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
                            const UserResponseCallback &&cb,
                            Connection::Ptr connection) {
+    THREAD_SAFE
+
     Response response;
     ERRORS genericError = m == MonitorOrScraper::Monitor
                               ? ERRORS::MM_COULDNT_ADD_MONITOR
@@ -418,6 +395,8 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
         std::make_shared<steady_timer>(_io, std::chrono::seconds(2));
 
     delayTimer->async_wait([=](const std::error_code &ec) {
+        THREAD_SAFE
+
         delayTimer.get(); // capture delayTimer
         if (ec) {
             _logger->error(ec.message());
@@ -472,6 +451,8 @@ void MonitorManager::onAddMonitorScraper(const Cmd &cmd,
 void MonitorManager::onGetStatus(const MonitorOrScraper m, const Cmd &cmd,
                                  const UserResponseCallback &&cb,
                                  Connection::Ptr connection) {
+    THREAD_SAFE
+    
     Response response;
     json payload;
     json monitoredProcesses = json::object();
@@ -519,6 +500,8 @@ void MonitorManager::onGetMonitorScraperStatus(const Cmd &cmd,
 void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
                             const kekmonitors::UserResponseCallback &&cb,
                             Connection::Ptr connection) {
+    THREAD_SAFE
+    
     Response response;
 
     if (cmd.getPayload() == nullptr) {
@@ -539,7 +522,6 @@ void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
         return;
     }
 
-    std::lock_guard lock(_socketLock);
     auto &storedObjects =
         m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
 

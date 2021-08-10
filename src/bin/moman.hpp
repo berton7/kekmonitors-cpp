@@ -38,6 +38,7 @@ class StoredObject {
         other.p_isBeingAdded = false;
         other.p_isBeingStopped = false;
     }
+    ~StoredObject() = default;
 };
 
 class MonitorManager {
@@ -56,25 +57,11 @@ class MonitorManager {
     std::mutex _socketLock{};
     std::unordered_map<std::string, StoredObject> _storedMonitors;
     std::unordered_map<std::string, StoredObject> _storedScrapers;
-    /*
-    std::unordered_map<std::string, std::shared_ptr<Process>>
-        _monitorProcesses{};
-    std::unordered_map<std::string, std::shared_ptr<Process>>
-        _tmpMonitorProcesses{};
-    std::unordered_map<std::string, std::shared_ptr<Process>>
-        _scraperProcesses{};
-    std::unordered_map<std::string, std::shared_ptr<Process>>
-        _tmpScraperProcesses{};
-    std::unordered_map<std::string, local::stream_protocol::endpoint>
-        _monitorSockets{};
-    std::unordered_map<std::string, local::stream_protocol::endpoint>
-        _scraperSockets{};
-        */
 
     void checkProcesses(const error_code &);
-    void updateSockets(MonitorOrScraper m,
-                   const std::string &socketName, const std::string &eventType,
-                   const std::string &socketFullPath);
+    void updateSockets(MonitorOrScraper, const std::string &eventType,
+                       const std::string &socketName,
+                       const std::string &socketFullPath);
 
   public:
     MonitorManager() = delete;
