@@ -18,9 +18,10 @@ int main(int argc, char *argv[]) {
     if (!std::strcmp(argv[1], "--list-cmd")) {
         for (CommandType i = COMMANDS::PING;
              i < KEKMONITORS_FIRST_CUSTOM_COMMAND; i++) {
-            std::cout << utils::getStringWithoutNamespaces(
-                             utils::commandToString(i))
-                      << "\n";
+            const auto commandString =
+                utils::getStringWithoutNamespaces(utils::commandToString(i));
+            if (commandString.substr(0, 2) == "MM")
+                std::cout << commandString << "\n";
         }
         std::cout << std::endl;
         return 0;
