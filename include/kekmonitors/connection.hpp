@@ -3,7 +3,9 @@
 //
 
 #pragma once
-#include <boost/asio.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/local/stream_protocol.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/msg.hpp>
 

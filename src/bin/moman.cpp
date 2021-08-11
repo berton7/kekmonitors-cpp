@@ -1,5 +1,6 @@
 #include "moman.hpp"
 #include "kekmonitors/core.hpp"
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/system/detail/errc.hpp>
 #include <boost/system/detail/error_category.hpp>
@@ -57,8 +58,7 @@ void removeStoredProcess(Map &map, Iterator &it) {
         it = map.erase(it);
 }
 
-MonitorScraperCompletion::MonitorScraperCompletion(
-    io_service &io, MonitorManager *moman, Cmd cmd,
+MonitorScraperCompletion::MonitorScraperCompletion(io_context &io, MonitorManager *moman, Cmd cmd,
     MonitorManagerCallback &&momanCb, DoubleResponseCallback &&completionCb,
     Connection::Ptr connection)
     : _io(io), _cmd(std::move(cmd)), _completionCb(std::move(completionCb)),
@@ -87,7 +87,7 @@ void MonitorScraperCompletion::run() {
     });
 };
 
-void MonitorScraperCompletion::create(io_service &io, MonitorManager *moman,
+void MonitorScraperCompletion::create(io_context &io, MonitorManager *moman,
                                       const Cmd &cmd,
                                       MonitorManagerCallback &&momanCb,
                                       DoubleResponseCallback &&completionCb,

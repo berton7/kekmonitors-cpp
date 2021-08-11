@@ -1,6 +1,6 @@
 #pragma once
-#include <boost/asio.hpp>
 #include <chrono>
+#include <boost/asio/io_context.hpp>
 #include <kekmonitors/config.hpp>
 #include <kekmonitors/connection.hpp>
 #include <kekmonitors/core.hpp>
@@ -22,7 +22,7 @@ class UnixServer {
   private:
     std::unique_ptr<local::stream_protocol::acceptor> _acceptor{nullptr};
     std::string _serverPath{};
-    io_service &_io;
+    io_context &_io;
     std::shared_ptr<Config> _config{nullptr};
     std::shared_ptr<spdlog::logger> _logger{nullptr};
 

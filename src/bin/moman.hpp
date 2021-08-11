@@ -101,7 +101,7 @@ class MonitorScraperCompletion
 
   private:
     bool _bothCompleted{false};
-    io_service &_io;
+    io_context &_io;
     const Cmd _cmd;
     const DoubleResponseCallback _completionCb;
     const MonitorManagerCallback _momanCb;
@@ -111,7 +111,7 @@ class MonitorScraperCompletion
 
   public:
     MonitorScraperCompletion() = delete;
-    MonitorScraperCompletion(io_service &io, MonitorManager *moman, Cmd cmd,
+    MonitorScraperCompletion(io_context &io, MonitorManager *moman, Cmd cmd,
                              MonitorManagerCallback &&momanCb,
                              DoubleResponseCallback &&completionCb,
                              std::shared_ptr<Connection> connection);
@@ -120,7 +120,7 @@ class MonitorScraperCompletion
 
     void run();
 
-    static void create(io_service &io, MonitorManager *moman, const Cmd &cmd,
+    static void create(io_context &io, MonitorManager *moman, const Cmd &cmd,
                        MonitorManagerCallback &&momanCb,
                        DoubleResponseCallback &&completionCb,
                        std::shared_ptr<Connection> connection);

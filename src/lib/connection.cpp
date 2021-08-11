@@ -1,13 +1,14 @@
 //
 // Created by berton on 09/07/21.
 //
-//#include <boost/asio/local/stream_protocol.hpp>
+#include <boost/asio/read.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/asio/write.hpp>
 #include <kekmonitors/connection.hpp>
 
 namespace kekmonitors {
 
-Connection::Connection(io_service &io)
+Connection::Connection(io_context &io)
     : _io(io), _buffer(1024), socket(io), _timeout(io) {
     KDBG("Allocating new connection");
 }
