@@ -320,7 +320,8 @@ void Inotify::Close() {
 
     if (m_fd != -1) {
         RemoveAll();
-        close(m_fd);
+        // close(m_fd);
+        m_afd.close();
         m_fd = -1;
     }
 
@@ -471,8 +472,12 @@ void Inotify::WaitForEvents(bool fNoIntr) noexcept(false) {
     IN_WRITE_END
 }
 
-void Inotify::AsyncWaitForEvents(
-    std::function<void(const boost::system::error_code &)> &&cb) {
+void Inotify::AsyncStartWaitForEvents(std::function<void()> &&cb) {
+    m_event_callback = std::move(cb);
+    AsyncWaitForEvents();
+}
+
+void Inotify::AsyncWaitForEvents() {
     m_afd.async_read_some(
         boost::asio::buffer(m_buf),
         [=](const boost::system::error_code &errc, size_t len) {
@@ -493,12 +498,14 @@ void Inotify::AsyncWaitForEvents(
                     i += INOTIFY_EVENT_SIZE + (ssize_t)pEvt->len;
                 }
                 IN_WRITE_END
+                m_event_callback();
+                AsyncWaitForEvents();
+            } else if (errc != boost::system::errc::bad_file_descriptor &&
+                       errc != boost::system::errc::operation_canceled) {
+                AsyncWaitForEvents();
             }
-            cb(errc);
         });
 }
-
-void Inotify::StopAsyncWait() { m_afd.close(); }
 
 bool Inotify::GetEvent(InotifyEvent *pEvt) noexcept(false) {
     if (pEvt == NULL)

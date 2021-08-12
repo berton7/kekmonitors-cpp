@@ -58,7 +58,8 @@ void removeStoredProcess(Map &map, Iterator &it) {
         it = map.erase(it);
 }
 
-MonitorScraperCompletion::MonitorScraperCompletion(io_context &io, MonitorManager *moman, Cmd cmd,
+MonitorScraperCompletion::MonitorScraperCompletion(
+    io_context &io, MonitorManager *moman, Cmd cmd,
     MonitorManagerCallback &&momanCb, DoubleResponseCallback &&completionCb,
     Connection::Ptr connection)
     : _io(io), _cmd(std::move(cmd)), _completionCb(std::move(completionCb)),
@@ -155,38 +156,31 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
         _config->parser.get<std::string>("GlobalConfig.socket_path"),
         IN_ALL_EVENTS);
     _fileWatcher.inotify.Add(_fileWatcher.watches[0]);
-    _fileWatcher.inotify.AsyncWaitForEvents(
-        std::bind(&MonitorManager::onInotifyUpdate, this, ph::_1));
+    _fileWatcher.inotify.AsyncStartWaitForEvents(
+        std::bind(&MonitorManager::onInotifyUpdate, this));
 
     _processCheckTimer.async_wait(
         std::bind(&MonitorManager::checkProcesses, this, ph::_1));
 }
 
-void MonitorManager::onInotifyUpdate(const error_code &errc) {
-    if (!errc) {
-        size_t count = _fileWatcher.inotify.GetEventCount();
-        for (; count > 0; --count) {
-            InotifyEvent event;
-            bool got_event = _fileWatcher.inotify.GetEvent(&event);
-            const auto &socketName = event.GetName();
-            std::string eventType;
-            event.DumpTypes(eventType);
-            const auto socketFullPath = event.GetWatch()->GetPath() +
-                                        fs::path::preferred_separator +
-                                        socketName;
-            if (got_event &&
-                (eventType == "IN_CREATE" && is_socket(socketFullPath) ||
-                 eventType == "IN_DELETE")) {
-                updateSockets(MonitorOrScraper::Monitor, eventType, socketName,
-                              socketFullPath);
-                updateSockets(MonitorOrScraper::Scraper, eventType, socketName,
-                              socketFullPath);
-            }
+void MonitorManager::onInotifyUpdate() {
+    size_t count = _fileWatcher.inotify.GetEventCount();
+    for (; count > 0; --count) {
+        InotifyEvent event;
+        bool got_event = _fileWatcher.inotify.GetEvent(&event);
+        const auto &socketName = event.GetName();
+        std::string eventType;
+        event.DumpTypes(eventType);
+        const auto socketFullPath = event.GetWatch()->GetPath() +
+                                    fs::path::preferred_separator + socketName;
+        if (got_event &&
+            (eventType == "IN_CREATE" && is_socket(socketFullPath) ||
+             eventType == "IN_DELETE")) {
+            updateSockets(MonitorOrScraper::Monitor, eventType, socketName,
+                          socketFullPath);
+            updateSockets(MonitorOrScraper::Scraper, eventType, socketName,
+                          socketFullPath);
         }
-        _fileWatcher.inotify.AsyncWaitForEvents(
-            std::bind(&MonitorManager::onInotifyUpdate, this, ph::_1));
-    } else {
-        KDBG(errc.message());
     }
 }
 

@@ -557,11 +557,9 @@ class Inotify {
      */
     void WaitForEvents(bool fNoIntr = false) noexcept(false);
 
-    void
-    AsyncWaitForEvents(std::function<void(const boost::system::error_code &)>
-                           &&cb) noexcept(false);
+    void AsyncStartWaitForEvents(std::function<void()> &&cb) noexcept(false);
 
-    void StopAsyncWait();
+    void AsyncWaitForEvents() noexcept(false);
 
     /// Returns the count of received and queued events.
     /**
@@ -783,6 +781,7 @@ class Inotify {
   private:
     int m_fd; ///< file descriptor
     boost::asio::posix::stream_descriptor m_afd;
+    std::function<void()> m_event_callback;
     IN_WATCH_MAP m_watches;              ///< watches (by descriptors)
     IN_WP_MAP m_paths;                   ///< watches (by paths)
     unsigned char m_buf[INOTIFY_BUFLEN]; ///< buffer for events

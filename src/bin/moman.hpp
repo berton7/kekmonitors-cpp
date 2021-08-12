@@ -57,7 +57,7 @@ class MonitorManager {
     std::unordered_map<std::string, StoredObject> _storedMonitors;
     std::unordered_map<std::string, StoredObject> _storedScrapers;
 
-    void onInotifyUpdate(const error_code &);
+    void onInotifyUpdate();
 
     void checkProcesses(const error_code &);
     void updateSockets(MonitorOrScraper, const std::string &eventType,
