@@ -314,22 +314,21 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
 
     auto it = storedObjects.find(className);
     if (it != storedObjects.end()) {
+        if (it->second.p_isBeingAdded) {
+            response.setError(genericError);
+            response.setInfo(
+                std::string{
+                    (m == MonitorOrScraper::Monitor ? "Monitor" : "Scraper")} +
+                " still being processed.");
+            cb(response, connection);
+            return;
+        }
         if (it->second.p_process) {
             response.setError(genericError);
             response.setInfo(
                 std::string{
                     (m == MonitorOrScraper::Monitor ? "Monitor" : "Scraper")} +
                 " already started.");
-            cb(response, connection);
-            return;
-        }
-
-        else if (it->second.p_isBeingAdded) {
-            response.setError(genericError);
-            response.setInfo(
-                std::string{
-                    (m == MonitorOrScraper::Monitor ? "Monitor" : "Scraper")} +
-                " still being processed.");
             cb(response, connection);
             return;
         }
@@ -386,6 +385,7 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
             className, pythonExecutable + " " + path,
             boost::process::std_out > boost::process::null,
             boost::process::std_err > boost::process::null);
+        obj.p_isBeingAdded = true;
         storedObjects.emplace(std::make_pair(className, std::move(obj)));
     }
 
@@ -401,6 +401,7 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
                                   ec.message()};
             response.setInfo(msg);
             _logger->warn(msg);
+            removeStoredProcess(storedObjects, it);
             cb(response, connection);
             return;
         }
@@ -495,6 +496,9 @@ void MonitorManager::onGetMonitorScraperStatus(const Cmd &cmd,
 void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
                             const kekmonitors::UserResponseCallback &&cb,
                             Connection::Ptr connection) {
+    ERRORS genericError = m == MonitorOrScraper::Monitor
+                              ? ERRORS::MM_COULDNT_STOP_MONITOR
+                              : ERRORS::MM_COULDNT_STOP_SCRAPER;
     Response response;
 
     if (cmd.getPayload() == nullptr) {
@@ -529,33 +533,50 @@ void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
         return;
     }
 
-    auto &ep = it->second.p_socket;
+    auto &storedObject = it->second;
+
+    if (storedObject.p_isBeingStopped) {
+        response.setError(genericError);
+        response.setInfo(std::string{m == MonitorOrScraper::Monitor
+                                         ? "Monitor "
+                                         : "Scraper "} +
+                         className + " is already being stopped.");
+        cb(response, connection);
+        return;
+    }
+
+    storedObject.p_isBeingStopped = true;
+    auto &ep = storedObject.p_socket;
     auto newConn = Connection::create(_io);
     newConn->socket.connect(*ep);
     Cmd newCmd;
     newCmd.setCmd(COMMANDS::STOP);
-    newConn->asyncWriteCmd(
-        newCmd, [=](const error_code &errc, Connection::Ptr conn) {
-            if (!errc) {
-                KDBG("Sent STOP");
-                conn->asyncReadResponse([=](const error_code &errc,
-                                            const Response &response,
-                                            Connection::Ptr conn) {
-                    if (errc)
-                        KDBG(errc.message());
-                    cb(response, conn);
-                });
-            } else {
-                KDBG(errc.message());
-                Response response;
-                response.setError(m == MonitorOrScraper::Monitor
-                                      ? ERRORS::MM_COULDNT_STOP_MONITOR
-                                      : MM_COULDNT_STOP_SCRAPER);
-                response.setInfo("Failed to send the STOP command. Errc: " +
-                                 errc.message());
+    newConn->asyncWriteCmd(newCmd, [=](const error_code &errc,
+                                       Connection::Ptr conn) {
+        auto &storedObjects =
+            m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
+        auto it = storedObjects.find(className);
+        if (it != storedObjects.end()) {
+            removeStoredSocket(storedObjects, it);
+        }
+        if (!errc) {
+            KDBG("Sent STOP");
+            conn->asyncReadResponse([=](const error_code &errc,
+                                        const Response &response,
+                                        Connection::Ptr conn) {
+                if (errc)
+                    KDBG(errc.message());
                 cb(response, conn);
-            }
-        });
+            });
+        } else {
+            KDBG(errc.message());
+            Response response;
+            response.setError(genericError);
+            response.setInfo("Failed to send the STOP command. Errc: " +
+                             errc.message());
+            cb(response, conn);
+        }
+    });
 }
 
 void MonitorManager::onStopMonitorScraper(const Cmd &cmd,
