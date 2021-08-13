@@ -31,7 +31,7 @@ else()
 	add_library(kekmonitors STATIC ${KEKMONITORS_SOURCE})
 endif()
 
-if ($CMAKE_BUILD_TYPE} STREQUAL "" OR ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+if (${CMAKE_BUILD_TYPE} STREQUAL "" OR ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 	set(REQUIRED_MONGO_LIBS mongo::bsoncxx_shared mongo::mongocxx_shared)
 else()
 	set(REQUIRED_MONGO_LIBS mongo::bsoncxx_static mongo::mongocxx_static)
