@@ -15,6 +15,8 @@ else
 	LOCAL_CMAKE_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}"
 fi
 
+[ ! -d "deps" ] && mkdir deps
+
 cd deps
 
 [ ! -d "mongo-c-driver" ] && git clone https://github.com/mongodb/mongo-c-driver.git --depth 1 -b $mongoc_version
