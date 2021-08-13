@@ -1,6 +1,7 @@
 #pragma once
 #include "server.hpp"
 #include <kekmonitors/core.hpp>
+#include <kekmonitors/inotify-cxx.h>
 #include <kekmonitors/msg.hpp>
 #include <kekmonitors/process.hpp>
 #include <mongocxx/client.hpp>

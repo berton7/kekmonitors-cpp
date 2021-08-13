@@ -40,7 +40,7 @@
 #include <sys/inotify-syscalls.h>
 #endif // __NR_inotify_init
 
-#include "inotify-cxx.h"
+#include <kekmonitors/inotify-cxx.h>
 
 /// procfs inotify base path
 #define PROCFS_INOTIFY_BASE "/proc/sys/fs/inotify/"
