@@ -1,4 +1,6 @@
+deps/
 build/
+release/
 cmake-build*/
 .vscode/
 .idea/
