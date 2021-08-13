@@ -1,6 +1,6 @@
 #pragma once
 #include <boost/bimap.hpp>
-#include <kekmonitors/typedefs.hpp>
+#include <boost/system/error_code.hpp>
 #include <mongocxx/instance.hpp>
 #include <spdlog/spdlog.h>
 #ifdef HAVE_STD_FILESYSTEM
@@ -42,6 +42,10 @@ namespace fs =
     boost::filesystem;
 #endif
 namespace ph = std::placeholders;
+
+typedef uint32_t CommandType;
+typedef uint32_t ErrorType;
+typedef boost::system::error_code error_code;
 
 enum COMMANDS : CommandType {
     PING = 1,

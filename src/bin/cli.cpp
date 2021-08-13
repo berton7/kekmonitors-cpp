@@ -2,7 +2,6 @@
 #include <iostream>
 #include <kekmonitors/config.hpp>
 #include <kekmonitors/connection.hpp>
-#include <kekmonitors/typedefs.hpp>
 #include <kekmonitors/utils.hpp>
 #include <stdexcept>
 
