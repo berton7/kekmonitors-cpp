@@ -394,6 +394,10 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
 
     delayTimer->async_wait([=](const std::error_code &ec) {
         delayTimer.get(); // capture delayTimer
+        auto &storedObjects =
+            m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
+        auto it = storedObjects.find(className);
+        StoredObject &storedObject = it->second;
         if (ec) {
             _logger->error(ec.message());
             Response response{Response::badResponse()};
@@ -405,10 +409,6 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
             cb(response, connection);
             return;
         }
-        auto &storedObjects =
-            m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
-        auto it = storedObjects.find(className);
-        StoredObject &storedObject = it->second;
         storedObject.p_isBeingAdded = false;
         if (storedObject.p_process->getProcess().running()) {
             _logger->info("Correctly added {} {}",
