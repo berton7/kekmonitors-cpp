@@ -49,7 +49,6 @@ class StoredObject {
 class MonitorManager {
   private:
     io_context &_io;
-    steady_timer _processCheckTimer;
     std::unique_ptr<UnixServer> _unixServer{nullptr};
     std::shared_ptr<Config> _config{nullptr};
     std::shared_ptr<spdlog::logger> _logger{nullptr};
@@ -63,8 +62,9 @@ class MonitorManager {
     std::unordered_map<std::string, StoredObject> _storedScrapers;
 
     void onInotifyUpdate();
+    void onProcessExit(int exit, const std::error_code &, MonitorOrScraper,
+                       const std::string &className);
 
-    void checkProcesses(const error_code &);
     void updateSockets(MonitorOrScraper, const std::string &eventType,
                        const std::string &socketName,
                        const std::string &socketFullPath);
@@ -149,10 +149,6 @@ void removeStoredProcess(Map &map, Iterator &it) {
     if (!stored.p_socket)
         it = map.erase(it);
 }
-
-void checkProcessesMap(
-    std::shared_ptr<spdlog::logger> &logger,
-    std::unordered_map<std::string, StoredObject> &storedObjects);
 
 void terminateProcesses(
     std::unordered_map<std::string, StoredObject> &storedObjects);

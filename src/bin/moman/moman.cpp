@@ -1,5 +1,7 @@
 #include "moman.hpp"
 #include "kekmonitors/core.hpp"
+#include "spdlog/common.h"
+#include "spdlog/logger.h"
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/process/detail/on_exit.hpp>
@@ -44,9 +46,7 @@ static inline bool is_socket(const std::string &path) {
 namespace kekmonitors {
 
 MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
-    : _io(io), _fileWatcher(io),
-      _processCheckTimer(io, std::chrono::milliseconds(500)),
-      _config(std::move(config)) {
+    : _io(io), _fileWatcher(io), _config(std::move(config)) {
     if (!_config)
         _config = std::make_shared<Config>();
     _logger = utils::getLogger("MonitorManager");
@@ -93,9 +93,6 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
     _fileWatcher.inotify.Add(_fileWatcher.watches[0]);
     _fileWatcher.inotify.AsyncStartWaitForEvents(
         std::bind(&MonitorManager::onInotifyUpdate, this));
-
-    _processCheckTimer.async_wait(
-        std::bind(&MonitorManager::checkProcesses, this, ph::_1));
 }
 
 void MonitorManager::onInotifyUpdate() {
@@ -115,6 +112,26 @@ void MonitorManager::onInotifyUpdate() {
                           socketFullPath);
             updateSockets(MonitorOrScraper::Scraper, eventType, socketName,
                           socketFullPath);
+        }
+    }
+}
+
+void MonitorManager::onProcessExit(int exit, const std::error_code &ec,
+                                   MonitorOrScraper m,
+                                   const std::string &className) {
+    std::string monitorOrScraper{m == MonitorOrScraper::Monitor ? "Monitor"
+                                                                : "Scraper"};
+    if (ec) {
+        _logger->error("Error for {} {}: {}", monitorOrScraper, className,
+                       ec.message());
+    } else {
+        _logger->log(exit ? spdlog::level::warn : spdlog::level::info,
+                     "Monitor {} has exited with code {}", className, exit);
+        auto &map =
+            m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
+        auto it = map.find(className);
+        if (it != map.end()) {
+            removeStoredProcess(map, it);
         }
     }
 }
@@ -173,36 +190,6 @@ void terminateProcesses(
 MonitorManager::~MonitorManager() {
     terminateProcesses(_storedMonitors);
     terminateProcesses(_storedScrapers);
-}
-
-void checkProcessesMap(
-    std::shared_ptr<spdlog::logger> &logger,
-    std::unordered_map<std::string, StoredObject> &storedObjects) {
-    for (auto it = storedObjects.begin(); it != storedObjects.end();) {
-        auto &storedProcess = it->second.p_process;
-        if (storedProcess) {
-            auto &process = storedProcess->getProcess();
-            if (!process.running()) {
-                logger->warn("Monitor {} has exited with code {}", it->first,
-                             process.exit_code());
-                // process.join();
-                removeStoredProcess(storedObjects, it);
-            } else
-                ++it;
-        } else
-            ++it;
-    }
-}
-
-void MonitorManager::checkProcesses(const error_code &ec) {
-    if (ec) {
-        return;
-    }
-    checkProcessesMap(_logger, _storedMonitors);
-    checkProcessesMap(_logger, _storedScrapers);
-    _processCheckTimer.expires_after(std::chrono::milliseconds(500));
-    _processCheckTimer.async_wait(
-        std::bind(&MonitorManager::checkProcesses, this, ph::_1));
 }
 
 } // namespace kekmonitors

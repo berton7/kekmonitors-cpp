@@ -1,4 +1,6 @@
 #include "moman.hpp"
+#include <boost/process/detail/on_exit.hpp>
+#include <functional>
 #include <mongocxx/exception/query_exception.hpp>
 
 namespace kekmonitors {
@@ -57,7 +59,6 @@ void MonitorManager::shutdown(const Cmd &cmd, const UserResponseCallback &&cb,
                               Connection::Ptr connection) {
     _logger->info("Shutting down...");
     KDBG("Received shutdown");
-    _processCheckTimer.cancel();
     _fileWatcher.inotify.Close();
     _unixServer->shutdown();
     cb(Response::okResponse(), connection);
@@ -163,20 +164,24 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
         optRegisteredMonitor.value().view()["path"].get_utf8().value};
     auto delayTimer =
         std::make_shared<steady_timer>(_io, std::chrono::seconds(2));
+    auto &&onExitCb = std::bind(&MonitorManager::onProcessExit, this, ph::_1,
+                                ph::_2, m, className);
 
     if (it != storedObjects.end()) {
         StoredObject &obj = it->second;
         obj.p_process = std::make_unique<Process>(
             className, pythonExecutable + " " + path,
             boost::process::std_out > boost::process::null,
-            boost::process::std_err > boost::process::null);
+            boost::process::std_err > boost::process::null, _io,
+            boost::process::on_exit(onExitCb));
         obj.p_timer = delayTimer;
     } else {
         StoredObject obj{className};
         obj.p_process = std::make_unique<Process>(
             className, pythonExecutable + " " + path,
             boost::process::std_out > boost::process::null,
-            boost::process::std_err > boost::process::null);
+            boost::process::std_err > boost::process::null, _io,
+            boost::process::on_exit(onExitCb));
         obj.p_isBeingAdded = true;
         obj.p_timer = delayTimer;
         storedObjects.emplace(std::make_pair(className, std::move(obj)));
