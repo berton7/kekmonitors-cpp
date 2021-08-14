@@ -23,8 +23,10 @@ class StoredObject {
   public:
     std::unique_ptr<Process> p_process{nullptr};
     std::unique_ptr<local::stream_protocol::endpoint> p_socket{nullptr};
-    std::shared_ptr<steady_timer> p_timer;
-    std::string p_className;
+    std::shared_ptr<steady_timer> p_onAddTimer{nullptr};
+    std::shared_ptr<steady_timer> p_onStopTimer{nullptr};
+    UserResponseCallback p_stopCallback;
+    std::string p_className{};
     bool p_isBeingAdded{false};
     bool p_isBeingStopped{false};
     bool p_confirmAdded{false};
@@ -33,8 +35,10 @@ class StoredObject {
     StoredObject(StoredObject &&other)
         : p_process{std::move(other.p_process)}, p_socket{std::move(
                                                      other.p_socket)},
-          p_timer(std::move(other.p_timer)), p_className{std::move(
-                                                 other.p_className)},
+          p_onAddTimer(std::move(other.p_onAddTimer)),
+          p_onStopTimer(std::move(other.p_onStopTimer)),
+          p_stopCallback(std::move(other.p_stopCallback)),
+          p_className{std::move(other.p_className)},
           p_isBeingAdded(std::move(other.p_isBeingAdded)),
           p_isBeingStopped(std::move(other.p_isBeingStopped)),
           p_confirmAdded(std::move(other.p_confirmAdded)) {

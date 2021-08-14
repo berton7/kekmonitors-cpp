@@ -174,7 +174,7 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
             boost::process::std_out > boost::process::null,
             boost::process::std_err > boost::process::null, _io,
             boost::process::on_exit(onExitCb));
-        obj.p_timer = delayTimer;
+        obj.p_onAddTimer = delayTimer;
     } else {
         StoredObject obj{className};
         obj.p_process = std::make_unique<Process>(
@@ -183,7 +183,7 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
             boost::process::std_err > boost::process::null, _io,
             boost::process::on_exit(onExitCb));
         obj.p_isBeingAdded = true;
-        obj.p_timer = delayTimer;
+        obj.p_onAddTimer = delayTimer;
         storedObjects.emplace(std::make_pair(className, std::move(obj)));
     }
 
@@ -356,7 +356,8 @@ void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
             removeStoredSocket(storedObjects, it);
         }
         if (!errc) {
-            KDBG("Sent STOP");
+            KDBG("Sent STOP correctly");
+            
             conn->asyncReadResponse([=](const error_code &errc,
                                         const Response &response,
                                         Connection::Ptr conn) {

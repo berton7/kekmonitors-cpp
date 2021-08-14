@@ -157,7 +157,7 @@ void MonitorManager::updateSockets(MonitorOrScraper m,
                         socketFullPath);
                 if (storedObject.p_isBeingAdded) {
                     storedObject.p_confirmAdded = true;
-                    storedObject.p_timer->cancel();
+                    storedObject.p_onAddTimer->cancel();
                 }
             } else {
                 StoredObject obj(className);
