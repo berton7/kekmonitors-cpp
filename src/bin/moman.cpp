@@ -199,9 +199,14 @@ void MonitorManager::updateSockets(MonitorOrScraper m,
         if (eventType == "IN_CREATE") {
             KDBG("Socket was created, className: " + className);
             if (it != map.end()) {
-                it->second.p_socket =
+                auto &storedObject = it->second;
+                storedObject.p_socket =
                     std::make_unique<local::stream_protocol::endpoint>(
                         socketFullPath);
+                if (storedObject.p_isBeingAdded) {
+                    storedObject.p_confirmAdded = true;
+                    storedObject.p_timer->cancel();
+                }
             } else {
                 StoredObject obj(className);
                 obj.p_socket =
@@ -373,12 +378,16 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
     // insanity at its best!
     const auto path = std::string{
         optRegisteredMonitor.value().view()["path"].get_utf8().value};
+    auto delayTimer =
+        std::make_shared<steady_timer>(_io, std::chrono::seconds(2));
 
     if (it != storedObjects.end()) {
-        it->second.p_process = std::make_unique<Process>(
+        StoredObject &obj = it->second;
+        obj.p_process = std::make_unique<Process>(
             className, pythonExecutable + " " + path,
             boost::process::std_out > boost::process::null,
             boost::process::std_err > boost::process::null);
+        obj.p_timer = delayTimer;
     } else {
         StoredObject obj{className};
         obj.p_process = std::make_unique<Process>(
@@ -386,19 +395,26 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
             boost::process::std_out > boost::process::null,
             boost::process::std_err > boost::process::null);
         obj.p_isBeingAdded = true;
+        obj.p_timer = delayTimer;
         storedObjects.emplace(std::make_pair(className, std::move(obj)));
     }
 
-    auto delayTimer =
-        std::make_shared<steady_timer>(_io, std::chrono::seconds(2));
-
-    delayTimer->async_wait([=](const std::error_code &ec) {
-        delayTimer.get(); // capture delayTimer
+    delayTimer->async_wait([=](const error_code &ec) {
         auto &storedObjects =
             m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
         auto it = storedObjects.find(className);
         StoredObject &storedObject = it->second;
-        if (ec) {
+        storedObject.p_isBeingAdded = false;
+        if ((!ec && storedObject.p_process->getProcess().running()) ||
+            (ec == boost::system::errc::operation_canceled &&
+             storedObject.p_confirmAdded)) {
+            storedObject.p_confirmAdded = false;
+            _logger->info("Correctly added {} {}",
+                          m == MonitorOrScraper::Monitor ? "monitor "
+                                                         : "scraper ",
+                          className);
+            cb(Response::okResponse(), connection);
+        } else if (ec) {
             _logger->error(ec.message());
             Response response{Response::badResponse()};
             const std::string msg{"Internal timer failed with message: " +
@@ -407,27 +423,19 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
             _logger->warn(msg);
             removeStoredProcess(storedObjects, it);
             cb(response, connection);
-            return;
+        } else {
+            Response response;
+            const std::string msg{
+                "Process exited too soon. Exit code: " +
+                std::to_string(
+                    storedObject.p_process->getProcess().exit_code()) +
+                "."};
+            response.setError(genericError);
+            response.setInfo(msg);
+            _logger->info(msg);
+            removeStoredProcess(storedObjects, it);
+            cb(response, connection);
         }
-        storedObject.p_isBeingAdded = false;
-        if (storedObject.p_process->getProcess().running()) {
-            _logger->info("Correctly added {} {}",
-                          m == MonitorOrScraper::Monitor ? "monitor "
-                                                         : "scraper ",
-                          className);
-            cb(Response::okResponse(), connection);
-            return;
-        }
-        Response response;
-        const std::string msg{
-            "Process exited too soon. Exit code: " +
-            std::to_string(storedObject.p_process->getProcess().exit_code()) +
-            "."};
-        response.setError(genericError);
-        response.setInfo(msg);
-        _logger->info(msg);
-        removeStoredProcess(storedObjects, it);
-        cb(response, connection);
     });
 }
 

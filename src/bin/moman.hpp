@@ -1,5 +1,6 @@
 #pragma once
 #include "server.hpp"
+#include <boost/asio/steady_timer.hpp>
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/inotify-cxx.h>
 #include <kekmonitors/msg.hpp>
@@ -22,22 +23,25 @@ class StoredObject {
   public:
     std::unique_ptr<Process> p_process{nullptr};
     std::unique_ptr<local::stream_protocol::endpoint> p_socket{nullptr};
+    std::shared_ptr<steady_timer> p_timer;
     std::string p_className;
     bool p_isBeingAdded{false};
     bool p_isBeingStopped{false};
+    bool p_confirmAdded{false};
 
     StoredObject(std::string className) : p_className(std::move(className)){};
     StoredObject(StoredObject &&other)
         : p_process{std::move(other.p_process)}, p_socket{std::move(
                                                      other.p_socket)},
-          p_className{std::move(other.p_className)},
+          p_timer(std::move(other.p_timer)), p_className{std::move(
+                                                 other.p_className)},
           p_isBeingAdded(std::move(other.p_isBeingAdded)),
-          p_isBeingStopped(std::move(other.p_isBeingStopped)) {
-        other.p_process = nullptr;
-        other.p_socket = nullptr;
+          p_isBeingStopped(std::move(other.p_isBeingStopped)),
+          p_confirmAdded(std::move(other.p_confirmAdded)) {
         other.p_className = "";
         other.p_isBeingAdded = false;
         other.p_isBeingStopped = false;
+        other.p_confirmAdded = false;
     }
     ~StoredObject() = default;
 };
