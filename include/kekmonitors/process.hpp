@@ -20,7 +20,7 @@ class Process {
   public:
     Process() = default;
     template <typename... Args>
-    Process(std::string className, Args... processArgs)
+    Process(std::string className, Args &&... processArgs)
         : _className(std::move(className)),
           _process(std::forward<Args>(processArgs)...),
           _creation(std::time(nullptr)) {
