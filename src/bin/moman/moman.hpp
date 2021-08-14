@@ -133,4 +133,28 @@ class MonitorScraperCompletion
   private:
     void checkForCompletion(const Response &response);
 };
+
+template <typename Map, typename Iterator>
+void removeStoredSocket(Map &map, Iterator &it) {
+    auto &stored = it->second;
+    stored.p_socket = nullptr;
+    if (!stored.p_process)
+        it = map.erase(it);
+}
+
+template <typename Map, typename Iterator>
+void removeStoredProcess(Map &map, Iterator &it) {
+    auto &stored = it->second;
+    stored.p_process = nullptr;
+    if (!stored.p_socket)
+        it = map.erase(it);
+}
+
+void checkProcessesMap(
+    std::shared_ptr<spdlog::logger> &logger,
+    std::unordered_map<std::string, StoredObject> &storedObjects);
+
+void terminateProcesses(
+    std::unordered_map<std::string, StoredObject> &storedObjects);
+
 } // namespace kekmonitors

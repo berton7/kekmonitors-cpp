@@ -45,7 +45,7 @@ add_dependencies(kekmonitors spdlog)
 
 set(KEKMONITORS_LIB_DEPS kekmonitors pthread ${REQUIRED_BOOST_LIBS} ${REQUIRED_MONGO_LIBS})
 
-add_executable(moman bin/moman.cpp bin/server.cpp)
+add_executable(moman bin/moman/moman.cpp bin/moman/callbacks.cpp bin/moman/server.cpp)
 target_link_libraries(moman ${KEKMONITORS_LIB_DEPS})
 
 add_executable(stopmm bin/stopmm.cpp)
