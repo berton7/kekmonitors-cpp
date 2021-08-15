@@ -188,8 +188,6 @@ void terminateProcesses(
 }
 
 MonitorManager::~MonitorManager() {
-    terminateProcesses(_storedMonitors);
-    terminateProcesses(_storedScrapers);
 }
 
 } // namespace kekmonitors

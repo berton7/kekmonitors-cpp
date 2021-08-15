@@ -1,5 +1,6 @@
 #include "moman.hpp"
 #include <boost/process/detail/on_exit.hpp>
+#include <boost/system/detail/errc.hpp>
 #include <functional>
 #include <mongocxx/exception/query_exception.hpp>
 
@@ -61,6 +62,8 @@ void MonitorManager::shutdown(const Cmd &cmd, const UserResponseCallback &&cb,
     KDBG("Received shutdown");
     _fileWatcher.inotify.Close();
     _unixServer->shutdown();
+    terminateProcesses(_storedMonitors);
+    terminateProcesses(_storedScrapers);
     cb(Response::okResponse(), connection);
 }
 
@@ -188,41 +191,71 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
     }
 
     delayTimer->async_wait([=](const error_code &ec) {
-        auto &storedObjects =
-            m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
-        auto it = storedObjects.find(className);
-        StoredObject &storedObject = it->second;
-        storedObject.p_isBeingAdded = false;
-        if ((!ec && storedObject.p_process->getProcess().running()) ||
-            (ec == boost::system::errc::operation_canceled &&
-             storedObject.p_confirmAdded)) {
-            storedObject.p_confirmAdded = false;
-            _logger->info("Correctly added {} {}",
-                          m == MonitorOrScraper::Monitor ? "monitor "
-                                                         : "scraper ",
-                          className);
-            cb(Response::okResponse(), connection);
-        } else if (ec) {
-            _logger->error(ec.message());
-            Response response{Response::badResponse()};
-            const std::string msg{"Internal timer failed with message: " +
-                                  ec.message()};
-            response.setInfo(msg);
-            _logger->warn(msg);
-            removeStoredProcess(storedObjects, it);
-            cb(response, connection);
+        /*
+onAdd possible outcomes:
+ 1) NO OUTCOME: MonitorManager destructor => timer.cancel() --> return;
+ 2) FAIL: process exits sooner than timer => onProcessExit --> timer.cancel(),
+    process removed, server/connection callback -> in async_wait: check for
+iterator
+ 3) OK: process does not exit sooner, socket gets created => onSocketUpdate =>
+    timer.cancel(), confirmAdded = true -> in async_wait: check for confirmAdded
+ 4) OK: process does not exit sooner, socket not created => async_wait
+        */
+
+        if (ec) {
+            if (ec == boost::system::errc::operation_canceled) {
+                auto &map = m == MonitorOrScraper::Monitor ? _storedMonitors
+                                                           : _storedScrapers;
+                auto it = map.find(className);
+                if (it == map.end()) // className not found => 2)
+                {
+                    Response response = Response::badResponse();
+                    response.setError(genericError);
+                    response.setInfo("Process exited sooner than expected.");
+                    cb(response, connection);
+                    return;
+                } else // className found
+                {
+                    StoredObject &storedObject = it->second;
+                    storedObject.p_isBeingAdded = false;
+                    if (storedObject.p_confirmAdded) // => 3)
+                    {
+                        storedObject.p_confirmAdded = false;
+                        cb(Response::okResponse(), connection);
+                        return;
+                    }
+                }
+
+                // everything else is 1)
+            }
         } else {
-            Response response;
-            const std::string msg{
-                "Process exited too soon. Exit code: " +
-                std::to_string(
-                    storedObject.p_process->getProcess().exit_code()) +
-                "."};
-            response.setError(genericError);
-            response.setInfo(msg);
-            _logger->info(msg);
-            removeStoredProcess(storedObjects, it);
-            cb(response, connection);
+            auto &map = m == MonitorOrScraper::Monitor ? _storedMonitors
+                                                       : _storedScrapers;
+            auto it = map.find(className);
+            if (it == map.end()) {
+                Response response = Response::badResponse();
+                response.setError(genericError);
+                response.setInfo(
+                    "Process exited sooner than expected. (WARNING: THIS CASE "
+                    "(1) SHOULD NOT HAVE HAPPENED -- NEED TO DEBUG!!!)");
+                cb(response, connection);
+                return;
+            } else {
+                auto &storedObject = it->second;
+                if (storedObject.p_process->getProcess().running()) {
+                    storedObject.p_isBeingAdded = false;
+                    cb(Response::okResponse(), connection);
+                    return;
+                } else {
+                    Response response = Response::badResponse();
+                    response.setError(genericError);
+                    response.setInfo("Process exited sooner than expected. "
+                                     "(WARNING: THIS CASE (2) SHOULD NOT HAVE "
+                                     "HAPPENED -- NEED TO DEBUG!!!)");
+                    cb(response, connection);
+                    return;
+                }
+            }
         }
     });
 }
@@ -357,7 +390,7 @@ void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
         }
         if (!errc) {
             KDBG("Sent STOP correctly");
-            
+
             conn->asyncReadResponse([=](const error_code &errc,
                                         const Response &response,
                                         Connection::Ptr conn) {
