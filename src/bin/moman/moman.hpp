@@ -53,8 +53,7 @@ class StoredObject {
 class MonitorManager {
   private:
     io_context &m_io;
-    std::unique_ptr<UnixServer> m_unixServer{nullptr};
-    std::shared_ptr<Config> m_config{nullptr};
+    UnixServer m_unixServer;
     std::shared_ptr<spdlog::logger> m_logger{nullptr};
     std::unique_ptr<mongocxx::client> m_kekDbConnection{nullptr};
     mongocxx::database m_kekDb{};
@@ -75,8 +74,7 @@ class MonitorManager {
 
   public:
     MonitorManager() = delete;
-    explicit MonitorManager(boost::asio::io_context &io,
-                            std::shared_ptr<Config> config = nullptr);
+    explicit MonitorManager(boost::asio::io_context &io);
     ~MonitorManager();
     void shutdown(const Cmd &cmd, const UserResponseCallback &&cb,
                   Connection::Ptr connection);

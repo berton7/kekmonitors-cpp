@@ -1,5 +1,5 @@
 #include "moman.hpp"
-#include "kekmonitors/core.hpp"
+#include "kekmonitors/msg.hpp"
 #include "spdlog/common.h"
 #include "spdlog/logger.h"
 #include <boost/asio/io_context.hpp>
@@ -11,6 +11,7 @@
 #include <bsoncxx/builder/basic/kvp.hpp>
 #include <bsoncxx/json.hpp>
 #include <iostream>
+#include <kekmonitors/core.hpp>
 #include <kekmonitors/utils.hpp>
 #include <memory>
 #include <mongocxx/exception/query_exception.hpp>
@@ -45,54 +46,47 @@ static inline bool is_socket(const std::string &path) {
 
 namespace kekmonitors {
 
-MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
-    : m_io(io), m_fileWatcher(io), m_config(std::move(config)) {
-    if (!m_config)
-        m_config = std::make_shared<Config>();
+MonitorManager::MonitorManager(io_context &io)
+    : m_io(io), m_fileWatcher(io),
+      m_unixServer(
+          io, "MonitorManager",
+          CallbackMap{
+              REGISTER_CALLBACK(COMMANDS::PING, &MonitorManager::onPing),
+              REGISTER_CALLBACK(COMMANDS::MM_STOP_MONITOR_MANAGER,
+                                &MonitorManager::shutdown),
+              M_REGISTER_CALLBACK(COMMANDS::MM_ADD_MONITOR,
+                                  &MonitorManager::onAdd),
+              S_REGISTER_CALLBACK(COMMANDS::MM_ADD_SCRAPER,
+                                  &MonitorManager::onAdd),
+              REGISTER_CALLBACK(COMMANDS::MM_ADD_MONITOR_SCRAPER,
+                                &MonitorManager::onAddMonitorScraper),
+              M_REGISTER_CALLBACK(COMMANDS::MM_GET_MONITOR_STATUS,
+                                  &MonitorManager::onGetStatus),
+              S_REGISTER_CALLBACK(COMMANDS::MM_GET_SCRAPER_STATUS,
+                                  &MonitorManager::onGetStatus),
+              REGISTER_CALLBACK(COMMANDS::MM_GET_MONITOR_SCRAPER_STATUS,
+                                &MonitorManager::onGetMonitorScraperStatus),
+              M_REGISTER_CALLBACK(COMMANDS::MM_STOP_MONITOR,
+                                  &MonitorManager::onStop),
+              S_REGISTER_CALLBACK(COMMANDS::MM_STOP_SCRAPER,
+                                  &MonitorManager::onStop),
+              REGISTER_CALLBACK(COMMANDS::MM_STOP_MONITOR_SCRAPER,
+                                &MonitorManager::onStopMonitorScraper)}) {
     m_logger = utils::getLogger("MonitorManager");
+    const auto &config = getConfig();
     m_kekDbConnection = std::make_unique<mongocxx::client>(mongocxx::uri{
-        m_config->p_parser.get<std::string>("GlobalConfig.db_path")});
-    m_kekDb = (*m_kekDbConnection)[m_config->p_parser.get<std::string>(
+        config.p_parser.get<std::string>("GlobalConfig.db_path")});
+    m_kekDb = (*m_kekDbConnection)[config.p_parser.get<std::string>(
         "GlobalConfig.db_name")];
     m_monitorRegisterDb = m_kekDb["register.monitors"];
     m_scraperRegisterDb = m_kekDb["register.scrapers"];
-#ifdef KEKMONITORS_DEBUG
-    KDBG("Removing leftover monitor manager socket. Beware this is a "
-         "debug-only feature.");
-    ::unlink(std::string{utils::getLocalKekDir() + "/sockets/MonitorManager"}
-                 .c_str());
-#endif
-    m_unixServer = std::make_unique<UnixServer>(
-        io, "MonitorManager",
-        CallbackMap{
-            REGISTER_CALLBACK(COMMANDS::PING, &MonitorManager::onPing),
-            REGISTER_CALLBACK(COMMANDS::MM_STOP_MONITOR_MANAGER,
-                              &MonitorManager::shutdown),
-            M_REGISTER_CALLBACK(COMMANDS::MM_ADD_MONITOR,
-                                &MonitorManager::onAdd),
-            S_REGISTER_CALLBACK(COMMANDS::MM_ADD_SCRAPER,
-                                &MonitorManager::onAdd),
-            REGISTER_CALLBACK(COMMANDS::MM_ADD_MONITOR_SCRAPER,
-                              &MonitorManager::onAddMonitorScraper),
-            M_REGISTER_CALLBACK(COMMANDS::MM_GET_MONITOR_STATUS,
-                                &MonitorManager::onGetStatus),
-            S_REGISTER_CALLBACK(COMMANDS::MM_GET_SCRAPER_STATUS,
-                                &MonitorManager::onGetStatus),
-            REGISTER_CALLBACK(COMMANDS::MM_GET_MONITOR_SCRAPER_STATUS,
-                              &MonitorManager::onGetMonitorScraperStatus),
-            M_REGISTER_CALLBACK(COMMANDS::MM_STOP_MONITOR,
-                                &MonitorManager::onStop),
-            S_REGISTER_CALLBACK(COMMANDS::MM_STOP_SCRAPER,
-                                &MonitorManager::onStop),
-            REGISTER_CALLBACK(COMMANDS::MM_STOP_MONITOR_SCRAPER,
-                              &MonitorManager::onStopMonitorScraper)},
-        m_config);
     m_fileWatcher.watches.emplace_back(
-        m_config->p_parser.get<std::string>("GlobalConfig.socket_path"),
+        config.p_parser.get<std::string>("GlobalConfig.socket_path"),
         IN_ALL_EVENTS);
     m_fileWatcher.inotify.Add(m_fileWatcher.watches[0]);
     m_fileWatcher.inotify.AsyncStartWaitForEvents(
         std::bind(&MonitorManager::onInotifyUpdate, this));
+    m_unixServer.startAccepting();
 }
 
 void MonitorManager::onInotifyUpdate() {
@@ -123,10 +117,10 @@ void MonitorManager::onProcessExit(int exit, const std::error_code &ec,
                                                                 : "Scraper"};
     if (ec) {
         m_logger->error("Error for {} {}: {}", monitorOrScraper, className,
-                       ec.message());
+                        ec.message());
     } else {
         m_logger->log(exit ? spdlog::level::warn : spdlog::level::info,
-                     "Monitor {} has exited with code {}", className, exit);
+                      "Monitor {} has exited with code {}", className, exit);
         auto &map =
             m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
         auto it = map.find(className);
@@ -187,8 +181,7 @@ void terminateProcesses(
     }
 }
 
-MonitorManager::~MonitorManager() {
-}
+MonitorManager::~MonitorManager() {}
 
 } // namespace kekmonitors
 

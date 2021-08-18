@@ -61,7 +61,7 @@ void MonitorManager::shutdown(const Cmd &cmd, const UserResponseCallback &&cb,
     m_logger->info("Shutting down...");
     KDBG("Received shutdown");
     m_fileWatcher.inotify.Close();
-    m_unixServer->shutdown();
+    m_unixServer.shutdown();
     terminateProcesses(_storedMonitors);
     terminateProcesses(_storedScrapers);
     cb(Response::okResponse(), connection);
