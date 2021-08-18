@@ -56,10 +56,10 @@ class MonitorManager {
     io_context &m_io;
     UnixServer m_unixServer;
     std::shared_ptr<spdlog::logger> m_logger{nullptr};
-    std::unique_ptr<mongocxx::client> m_kekDbConnection{nullptr};
-    mongocxx::database m_kekDb{};
-    mongocxx::collection m_monitorRegisterDb{};
-    mongocxx::collection m_scraperRegisterDb{};
+    mongocxx::client m_dbClient;
+    mongocxx::database m_db;
+    mongocxx::collection m_monitorRegisterDb;
+    mongocxx::collection m_scraperRegisterDb;
     std::atomic<bool> m_fileWatcherStop{false};
     FileWatcher m_fileWatcher;
     std::unordered_map<std::string, StoredObject> _storedMonitors;

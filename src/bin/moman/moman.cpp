@@ -17,6 +17,7 @@
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/utils.hpp>
 #include <memory>
+#include <mongocxx/client.hpp>
 #include <mongocxx/exception/query_exception.hpp>
 #include <mutex>
 #include <stdexcept>
@@ -78,12 +79,12 @@ MonitorManager::MonitorManager(io_context &io)
                                 &MonitorManager::onStopMonitorScraper)}) {
     m_logger = utils::getLogger("MonitorManager");
     const auto &config = getConfig();
-    m_kekDbConnection = std::make_unique<mongocxx::client>(mongocxx::uri{
-        config.p_parser.get<std::string>("GlobalConfig.db_path")});
-    m_kekDb = (*m_kekDbConnection)[config.p_parser.get<std::string>(
+    m_dbClient = mongocxx::client{mongocxx::uri{
+        config.p_parser.get<std::string>("GlobalConfig.db_path")}};
+    m_db = m_dbClient[config.p_parser.get<std::string>(
         "GlobalConfig.db_name")];
-    m_monitorRegisterDb = m_kekDb["register.monitors"];
-    m_scraperRegisterDb = m_kekDb["register.scrapers"];
+    m_monitorRegisterDb = m_db["register.monitors"];
+    m_scraperRegisterDb = m_db["register.scrapers"];
     m_fileWatcher.inotify.Add(m_fileWatcher.watches.emplace_back(
         config.p_parser.get<std::string>("GlobalConfig.socket_path"),
         IN_CREATE | IN_DELETE));
