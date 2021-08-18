@@ -110,20 +110,17 @@ void init() {
 #endif
 }
 
-CommandStringMap &commandStringMap()
-{
+CommandStringMap &commandStringMap() {
     static CommandStringMap s_commandStringMap;
     return s_commandStringMap;
 }
 
-ErrorStringMap &errorStringMap()
-{
+ErrorStringMap &errorStringMap() {
     static ErrorStringMap s_errorStringMap;
     return s_errorStringMap;
 }
 
-mongocxx::instance &initDbInstance()
-{
+mongocxx::instance &initDbInstance() {
     static mongocxx::instance s_dbInstance;
     return s_dbInstance;
 }
