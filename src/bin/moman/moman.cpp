@@ -1,4 +1,5 @@
 #include "moman.hpp"
+#include "kekmonitors/inotify-cxx.h"
 #include "kekmonitors/msg.hpp"
 #include "spdlog/common.h"
 #include "spdlog/logger.h"
@@ -10,6 +11,8 @@
 #include <bsoncxx/builder/basic/document.hpp>
 #include <bsoncxx/builder/basic/kvp.hpp>
 #include <bsoncxx/json.hpp>
+#include <cstdint>
+#include <filesystem>
 #include <iostream>
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/utils.hpp>
@@ -18,6 +21,7 @@
 #include <mutex>
 #include <stdexcept>
 #include <string>
+#include <sys/inotify.h>
 #include <unordered_map>
 #include <utility>
 
@@ -80,32 +84,95 @@ MonitorManager::MonitorManager(io_context &io)
         "GlobalConfig.db_name")];
     m_monitorRegisterDb = m_kekDb["register.monitors"];
     m_scraperRegisterDb = m_kekDb["register.scrapers"];
-    m_fileWatcher.watches.emplace_back(
+    m_fileWatcher.inotify.Add(m_fileWatcher.watches.emplace_back(
         config.p_parser.get<std::string>("GlobalConfig.socket_path"),
-        IN_ALL_EVENTS);
-    m_fileWatcher.inotify.Add(m_fileWatcher.watches[0]);
+        IN_CREATE | IN_DELETE));
+    const fs::path configDir = utils::getLocalKekDir() + "/config";
+    for (const auto &configSubDir : {"common", "monitors", "scrapers"}) {
+        const fs::path configSubPath = configDir / configSubDir;
+        if (fs::is_directory(configSubPath)) {
+            m_fileWatcher.inotify.Add(m_fileWatcher.watches.emplace_back(
+                configSubPath.string(), IN_CREATE | IN_DELETE));
+            for (const auto &configFile : {"whitelists.json", "blacklists.json",
+                                           "webhooks.json", "configs.json"}) {
+                const fs::path configFilePath = configSubPath / configFile;
+                if (fs::is_regular_file(configFilePath)) {
+                    m_fileWatcher.inotify.Add(
+                        m_fileWatcher.watches.emplace_back(
+                            configFilePath.string(), IN_MODIFY));
+                }
+            }
+        }
+    }
     m_fileWatcher.inotify.AsyncStartWaitForEvents(
         std::bind(&MonitorManager::onInotifyUpdate, this));
     m_unixServer.startAccepting();
 }
 
 void MonitorManager::onInotifyUpdate() {
-    size_t count = m_fileWatcher.inotify.GetEventCount();
-    for (; count > 0; --count) {
+    for (size_t count = m_fileWatcher.inotify.GetEventCount(); count > 0;
+         --count) {
         InotifyEvent event;
         bool got_event = m_fileWatcher.inotify.GetEvent(&event);
-        const auto &socketName = event.GetName();
-        std::string eventType;
-        event.DumpTypes(eventType);
-        const auto socketFullPath = event.GetWatch()->GetPath() +
-                                    fs::path::preferred_separator + socketName;
-        if (got_event &&
-            (eventType == "IN_CREATE" && is_socket(socketFullPath) ||
-             eventType == "IN_DELETE")) {
-            updateSockets(MonitorOrScraper::Monitor, eventType, socketName,
-                          socketFullPath);
-            updateSockets(MonitorOrScraper::Scraper, eventType, socketName,
-                          socketFullPath);
+        const auto &filename = event.GetName();
+        uint32_t eventType = event.GetMask();
+        const auto eventPath = event.GetWatch()->GetPath();
+        const auto fullEventPath =
+            filename.empty()
+                ? eventPath
+                : eventPath + fs::path::preferred_separator + filename;
+        if (got_event) {
+            if (eventPath == getConfig().p_parser.get<std::string>(
+                                 "GlobalConfig.socket_path")) {
+                if (eventType & IN_CREATE && is_socket(fullEventPath) ||
+                    eventType & IN_DELETE) {
+                    std::string socketFullPath{
+                        eventPath + fs::path::preferred_separator + filename};
+                    updateSockets(MonitorOrScraper::Monitor, eventType,
+                                  filename, socketFullPath);
+                    updateSockets(MonitorOrScraper::Scraper, eventType,
+                                  filename, socketFullPath);
+                }
+            } else {
+                const auto allowedConfigSubDir = {"common", "monitors",
+                                                  "scrapers"};
+                const auto allowedFilenames = {"whitelists.json",
+                                               "blacklists.json",
+                                               "webhooks.json", "configs.json"};
+                switch (eventType) {
+                case IN_CREATE:
+                    if (std::find(allowedFilenames.begin(),
+                                  allowedFilenames.end(),
+                                  filename) != allowedFilenames.end()) {
+                        m_fileWatcher.watches.emplace_back(
+                            eventPath, IN_CREATE | IN_DELETE | IN_DELETE_SELF);
+                        m_logger->info(
+                            "New config file created and monitored: {}",
+                            fullEventPath);
+                    }
+                    break;
+                case IN_MODIFY:
+                    m_logger->info("File {} has changed", fullEventPath);
+                    break;
+                case IN_DELETE:
+                    if (std::find(allowedFilenames.begin(),
+                                  allowedFilenames.end(),
+                                  filename) != allowedFilenames.end()) {
+                        for (auto watch = m_fileWatcher.watches.begin();
+                             watch != m_fileWatcher.watches.end();) {
+                            if (watch->GetPath() == fullEventPath) {
+                                m_fileWatcher.inotify.Remove(*watch);
+                                m_fileWatcher.watches.erase(watch);
+                                m_logger->warn("Config file was removed: {}",
+                                               fullEventPath);
+                                break;
+                            } else
+                                ++watch;
+                        }
+                    }
+                    break;
+                }
+            }
         }
     }
 }
@@ -130,8 +197,7 @@ void MonitorManager::onProcessExit(int exit, const std::error_code &ec,
     }
 }
 
-void MonitorManager::updateSockets(MonitorOrScraper m,
-                                   const std::string &eventType,
+void MonitorManager::updateSockets(MonitorOrScraper m, const uint32_t eventType,
                                    const std::string &socketName,
                                    const std::string &socketFullPath) {
     std::string type{m == MonitorOrScraper::Monitor ? "Monitor." : "Scraper."};
@@ -142,7 +208,8 @@ void MonitorManager::updateSockets(MonitorOrScraper m,
         std::string className{
             socketName.substr(typeLen, socketName.length() - typeLen)};
         auto it = map.find(className);
-        if (eventType == "IN_CREATE") {
+        switch (eventType) {
+        case IN_CREATE:
             KDBG("Socket was created, className: " + className);
             if (it != map.end()) {
                 auto &storedObject = it->second;
@@ -160,9 +227,13 @@ void MonitorManager::updateSockets(MonitorOrScraper m,
                         socketFullPath);
                 map.emplace(std::make_pair(className, std::move(obj)));
             }
-        } else if (it != map.end()) {
-            KDBG("Socket was destroyed, className: " + className);
-            removeStoredSocket(map, it);
+            break;
+        case IN_DELETE:
+            if (it != map.end()) {
+                KDBG("Socket was destroyed, className: " + className);
+                removeStoredSocket(map, it);
+                break;
+            }
         }
     }
 }

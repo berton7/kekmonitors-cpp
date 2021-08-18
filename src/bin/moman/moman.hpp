@@ -5,6 +5,7 @@
 #include <kekmonitors/inotify-cxx.h>
 #include <kekmonitors/msg.hpp>
 #include <kekmonitors/process.hpp>
+#include <list>
 #include <mongocxx/client.hpp>
 #include <mongocxx/instance.hpp>
 #include <string>
@@ -16,7 +17,7 @@ class FileWatcher {
   public:
     FileWatcher(io_context &io) : inotify(io) {}
     Inotify inotify;
-    std::vector<InotifyWatch> watches;
+    std::list<InotifyWatch> watches;
 };
 
 class StoredObject {
@@ -68,7 +69,7 @@ class MonitorManager {
     void onProcessExit(int exit, const std::error_code &, MonitorOrScraper,
                        const std::string &className);
 
-    void updateSockets(MonitorOrScraper, const std::string &eventType,
+    void updateSockets(MonitorOrScraper, const uint32_t eventType,
                        const std::string &socketName,
                        const std::string &socketFullPath);
 
