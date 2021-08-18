@@ -44,4 +44,10 @@ Config::Config() {
     pt::read_ini(configPath, p_parser);
 }
 Config::~Config() { KDBG("Config destructor"); }
+
+Config &getConfig()
+{
+	static Config s_config;
+    return s_config;
+}
 } // namespace kekmonitors

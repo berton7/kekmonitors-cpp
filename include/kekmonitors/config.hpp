@@ -15,4 +15,6 @@ class Config {
     Config();
     ~Config();
 };
+
+Config &getConfig();
 } // namespace kekmonitors
