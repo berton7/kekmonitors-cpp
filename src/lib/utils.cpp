@@ -114,14 +114,14 @@ Response makeCommonResponse(const Response &firstResponse,
                             const Response &secondResponse,
                             const ERRORS commonError) {
     Response finalResponse = Response::okResponse();
-    if (firstResponse.getError() || secondResponse.getError()) {
+    if (firstResponse.error() || secondResponse.error()) {
         finalResponse.setError(commonError);
         std::string info{};
         for (const Response &response : {firstResponse, secondResponse}) {
-            if (response.getError()) {
-                info += errorToString(response.getError());
-                if (!response.getInfo().empty())
-                    info += ": " + response.getInfo() + " ";
+            if (response.error()) {
+                info += errorToString(response.error());
+                if (!response.info().empty())
+                    info += ": " + response.info() + " ";
                 else
                     info += "; ";
             }

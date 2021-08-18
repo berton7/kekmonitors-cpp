@@ -20,14 +20,14 @@ typedef std::map<const kekmonitors::CommandType, userCmdCallback> CallbackMap;
 
 class UnixServer {
   private:
-    std::unique_ptr<local::stream_protocol::acceptor> _acceptor{nullptr};
-    std::string _serverPath{};
-    io_context &_io;
-    std::shared_ptr<Config> _config{nullptr};
-    std::shared_ptr<spdlog::logger> _logger{nullptr};
+    std::unique_ptr<local::stream_protocol::acceptor> m_acceptor{nullptr};
+    std::string m_serverPath{};
+    io_context &m_io;
+    std::shared_ptr<Config> m_config{nullptr};
+    std::shared_ptr<spdlog::logger> m_logger{nullptr};
 
   public:
-    CallbackMap _callbacks{};
+    CallbackMap p_callbacks{};
 
   private:
     void onConnect(const error_code &err,

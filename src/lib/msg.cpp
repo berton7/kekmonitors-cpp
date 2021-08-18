@@ -4,19 +4,19 @@
 
 namespace kekmonitors {
 
-Cmd::Cmd() : _cmd(COMMANDS::PING){};
+Cmd::Cmd() : m_cmd(COMMANDS::PING){};
 Cmd::~Cmd() = default;
 
 Cmd Cmd::fromJson(const json &obj) {
     Cmd cmd;
     bool success = false;
     try {
-        cmd._cmd = obj.at("_Cmd__cmd");
+        cmd.m_cmd = obj.at("_Cmd__cmd");
     } catch (json::exception &e) {
         throw std::invalid_argument("Json object doesn't contain \"_Cmd__cmd\"");
     }
     try {
-        cmd._payload = obj.at("_Cmd__payload");
+        cmd.m_payload = obj.at("_Cmd__payload");
     } catch (json::exception &e) {
     };
     return cmd;
@@ -26,12 +26,12 @@ Cmd Cmd::fromJson(const json &obj, error_code &ec)
 {
     Cmd cmd;
     try {
-        cmd._cmd = obj.at("_Cmd__cmd");
+        cmd.m_cmd = obj.at("_Cmd__cmd");
     } catch (json::exception &e) {
         ec = boost::system::errc::make_error_code(boost::system::errc::invalid_argument);
     }
     try {
-        cmd._payload = obj.at("_Cmd__payload");
+        cmd.m_payload = obj.at("_Cmd__payload");
     } catch (json::exception &e) {
     };
     return cmd;
@@ -39,9 +39,9 @@ Cmd Cmd::fromJson(const json &obj, error_code &ec)
 
 json Cmd::toJson() const {
     json j;
-    j["_Cmd__cmd"] = _cmd;
-    if (!_payload.empty())
-        j["_Cmd__payload"] = _payload;
+    j["_Cmd__cmd"] = m_cmd;
+    if (!m_payload.empty())
+        j["_Cmd__payload"] = m_payload;
     return j;
 };
 
@@ -62,27 +62,27 @@ Cmd Cmd::fromString(const std::string &str, error_code &ec) {
 
 std::string Cmd::toString() const { return toJson().dump(); }
 
-kekmonitors::CommandType Cmd::getCmd() const { return _cmd; }
-void Cmd::setCmd(kekmonitors::CommandType cmd) { _cmd = cmd; }
-const json &Cmd::getPayload() const { return _payload; }
-void Cmd::setPayload(const json &payload) { _payload = payload; }
+kekmonitors::CommandType Cmd::cmd() const { return m_cmd; }
+void Cmd::setCmd(kekmonitors::CommandType cmd) { m_cmd = cmd; }
+const json &Cmd::payload() const { return m_payload; }
+void Cmd::setPayload(const json &payload) { m_payload = payload; }
 
-Response::Response() : _error(ERRORS::OK){};
+Response::Response() : m_error(ERRORS::OK){};
 Response::~Response() = default;
 
 Response Response::fromJson(const json &obj) {
     Response response;
     try {
-        response._error = obj.at("_Response__error");
+        response.m_error = obj.at("_Response__error");
     } catch (json::exception &e) {
         throw std::invalid_argument("Json object doesn't contain \"_Response__error\"");
     };
     try {
-        response._payload = obj.at("_Response__payload");
+        response.m_payload = obj.at("_Response__payload");
     } catch (json::exception &e) {
     };
     try {
-        response._info = obj.at("_Response__info");
+        response.m_info = obj.at("_Response__info");
     } catch (json::exception &e) {
     };
     return response;
@@ -91,16 +91,16 @@ Response Response::fromJson(const json &obj) {
 Response Response::fromJson(const json &obj, error_code &ec) {
     Response response;
     try {
-        response._error = obj.at("_Response__error");
+        response.m_error = obj.at("_Response__error");
     } catch (json::exception &e) {
         ec = boost::system::errc::make_error_code(boost::system::errc::invalid_argument);
     };
     try {
-        response._payload = obj.at("_Response__payload");
+        response.m_payload = obj.at("_Response__payload");
     } catch (json::exception &e) {
     };
     try {
-        response._info = obj.at("_Response__info");
+        response.m_info = obj.at("_Response__info");
     } catch (json::exception &e) {
     };
     return response;
@@ -108,19 +108,19 @@ Response Response::fromJson(const json &obj, error_code &ec) {
 
 json Response::toJson() const {
     json j;
-    j["_Response__error"] = _error;
-    if (!_info.empty())
-        j["_Response__info"] = _info;
-    if (!_payload.empty())
-        j["_Response__payload"] = _payload;
+    j["_Response__error"] = m_error;
+    if (!m_info.empty())
+        j["_Response__info"] = m_info;
+    if (!m_payload.empty())
+        j["_Response__payload"] = m_payload;
     return j;
 };
-kekmonitors::ErrorType Response::getError() const { return _error; }
-void Response::setError(kekmonitors::ErrorType error) { _error = error; }
-const json &Response::getPayload() const { return _payload; }
-void Response::setPayload(const json &payload) { _payload = payload; }
-const std::string &Response::getInfo() const { return _info; }
-void Response::setInfo(const std::string &info) { _info = info; }
+kekmonitors::ErrorType Response::error() const { return m_error; }
+void Response::setError(kekmonitors::ErrorType error) { m_error = error; }
+const json &Response::payload() const { return m_payload; }
+void Response::setPayload(const json &payload) { m_payload = payload; }
+const std::string &Response::info() const { return m_info; }
+void Response::setInfo(const std::string &info) { m_info = info; }
 
 Response Response::okResponse() {
     Response resp;

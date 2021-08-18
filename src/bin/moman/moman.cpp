@@ -46,23 +46,23 @@ static inline bool is_socket(const std::string &path) {
 namespace kekmonitors {
 
 MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
-    : _io(io), _fileWatcher(io), _config(std::move(config)) {
-    if (!_config)
-        _config = std::make_shared<Config>();
-    _logger = utils::getLogger("MonitorManager");
-    _kekDbConnection = std::make_unique<mongocxx::client>(mongocxx::uri{
-        _config->parser.get<std::string>("GlobalConfig.db_path")});
-    _kekDb = (*_kekDbConnection)[_config->parser.get<std::string>(
+    : m_io(io), m_fileWatcher(io), m_config(std::move(config)) {
+    if (!m_config)
+        m_config = std::make_shared<Config>();
+    m_logger = utils::getLogger("MonitorManager");
+    m_kekDbConnection = std::make_unique<mongocxx::client>(mongocxx::uri{
+        m_config->p_parser.get<std::string>("GlobalConfig.db_path")});
+    m_kekDb = (*m_kekDbConnection)[m_config->p_parser.get<std::string>(
         "GlobalConfig.db_name")];
-    _monitorRegisterDb = _kekDb["register.monitors"];
-    _scraperRegisterDb = _kekDb["register.scrapers"];
+    m_monitorRegisterDb = m_kekDb["register.monitors"];
+    m_scraperRegisterDb = m_kekDb["register.scrapers"];
 #ifdef KEKMONITORS_DEBUG
     KDBG("Removing leftover monitor manager socket. Beware this is a "
          "debug-only feature.");
     ::unlink(std::string{utils::getLocalKekDir() + "/sockets/MonitorManager"}
                  .c_str());
 #endif
-    _unixServer = std::make_unique<UnixServer>(
+    m_unixServer = std::make_unique<UnixServer>(
         io, "MonitorManager",
         CallbackMap{
             REGISTER_CALLBACK(COMMANDS::PING, &MonitorManager::onPing),
@@ -86,20 +86,20 @@ MonitorManager::MonitorManager(io_context &io, std::shared_ptr<Config> config)
                                 &MonitorManager::onStop),
             REGISTER_CALLBACK(COMMANDS::MM_STOP_MONITOR_SCRAPER,
                               &MonitorManager::onStopMonitorScraper)},
-        _config);
-    _fileWatcher.watches.emplace_back(
-        _config->parser.get<std::string>("GlobalConfig.socket_path"),
+        m_config);
+    m_fileWatcher.watches.emplace_back(
+        m_config->p_parser.get<std::string>("GlobalConfig.socket_path"),
         IN_ALL_EVENTS);
-    _fileWatcher.inotify.Add(_fileWatcher.watches[0]);
-    _fileWatcher.inotify.AsyncStartWaitForEvents(
+    m_fileWatcher.inotify.Add(m_fileWatcher.watches[0]);
+    m_fileWatcher.inotify.AsyncStartWaitForEvents(
         std::bind(&MonitorManager::onInotifyUpdate, this));
 }
 
 void MonitorManager::onInotifyUpdate() {
-    size_t count = _fileWatcher.inotify.GetEventCount();
+    size_t count = m_fileWatcher.inotify.GetEventCount();
     for (; count > 0; --count) {
         InotifyEvent event;
-        bool got_event = _fileWatcher.inotify.GetEvent(&event);
+        bool got_event = m_fileWatcher.inotify.GetEvent(&event);
         const auto &socketName = event.GetName();
         std::string eventType;
         event.DumpTypes(eventType);
@@ -122,10 +122,10 @@ void MonitorManager::onProcessExit(int exit, const std::error_code &ec,
     std::string monitorOrScraper{m == MonitorOrScraper::Monitor ? "Monitor"
                                                                 : "Scraper"};
     if (ec) {
-        _logger->error("Error for {} {}: {}", monitorOrScraper, className,
+        m_logger->error("Error for {} {}: {}", monitorOrScraper, className,
                        ec.message());
     } else {
-        _logger->log(exit ? spdlog::level::warn : spdlog::level::info,
+        m_logger->log(exit ? spdlog::level::warn : spdlog::level::info,
                      "Monitor {} has exited with code {}", className, exit);
         auto &map =
             m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
@@ -178,7 +178,7 @@ void terminateProcesses(
     for (auto it = storedObjects.begin(); it != storedObjects.end();) {
         auto &storedProcess = it->second.p_process;
         if (storedProcess) {
-            auto &process = storedProcess->getProcess();
+            auto &process = storedProcess->process();
             if (process.running())
                 process.terminate();
             removeStoredProcess(storedObjects, it);

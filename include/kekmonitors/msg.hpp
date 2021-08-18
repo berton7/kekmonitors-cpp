@@ -15,8 +15,8 @@ class IMessage {
 
 class Cmd : public IMessage {
   protected:
-    kekmonitors::CommandType _cmd;
-    json _payload;
+    kekmonitors::CommandType m_cmd;
+    json m_payload;
 
   public:
     Cmd();
@@ -29,17 +29,17 @@ class Cmd : public IMessage {
     static Cmd fromString(const std::string &str, error_code &ec);
     std::string toString() const override;
 
-    kekmonitors::CommandType getCmd() const;
+    kekmonitors::CommandType cmd() const;
     void setCmd(kekmonitors::CommandType cmd);
-    const json &getPayload() const;
+    const json &payload() const;
     void setPayload(const json &payload);
 };
 
 class Response : public IMessage {
   private:
-    kekmonitors::ErrorType _error;
-    std::string _info;
-    json _payload;
+    kekmonitors::ErrorType m_error;
+    std::string m_info;
+    json m_payload;
 
   public:
     Response();
@@ -52,11 +52,11 @@ class Response : public IMessage {
     static Response fromString(const std::string &str, error_code &ec);
     std::string toString() const override;
 
-    kekmonitors::ErrorType getError() const;
+    kekmonitors::ErrorType error() const;
     void setError(kekmonitors::ErrorType error);
-    const json &getPayload() const;
+    const json &payload() const;
     void setPayload(const json &payload);
-    const std::string &getInfo() const;
+    const std::string &info() const;
     void setInfo(const std::string &info);
 
     static Response okResponse();

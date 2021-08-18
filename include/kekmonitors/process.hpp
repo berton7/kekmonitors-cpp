@@ -13,27 +13,27 @@ namespace kekmonitors {
 
 class Process {
   private:
-    const std::string _className{};
-    boost::process::child _process;
-    const std::time_t _creation = 0;
+    const std::string m_className{};
+    boost::process::child m_process;
+    const std::time_t m_creation = 0;
 
   public:
     Process() = default;
     template <typename... Args>
     Process(std::string className, Args &&... processArgs)
-        : _className(std::move(className)),
-          _process(std::forward<Args>(processArgs)...),
-          _creation(std::time(nullptr)) {
+        : m_className(std::move(className)),
+          m_process(std::forward<Args>(processArgs)...),
+          m_creation(std::time(nullptr)) {
         KDBG("Constructed process");
     };
 
     ~Process() { KDBG("Destroyed process"); }
 
-    std::time_t getCreation() const { return _creation; };
-    boost::process::child &getProcess() { return _process; };
+    std::time_t creation() const { return m_creation; };
+    boost::process::child &process() { return m_process; };
     nlohmann::json toJson() const {
-        return {{"Started at", _creation}, {"PID", _process.id()}};
+        return {{"Started at", m_creation}, {"PID", m_process.id()}};
     };
-    const std::string &getClassName() const { return _className; }
+    const std::string &classname() const { return m_className; }
 };
 } // namespace kekmonitors

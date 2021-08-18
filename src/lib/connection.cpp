@@ -9,14 +9,14 @@
 namespace kekmonitors {
 
 Connection::Connection(io_context &io)
-    : _io(io), _buffer(1024), socket(io), _timeout(io) {
+    : m_io(io), m_buffer(1024), p_socket(io), m_timeout(io) {
     KDBG("Allocating new connection");
 }
 
 Connection::~Connection() {
-    if (socket.is_open())
-        socket.close();
-    _timeout.cancel();
+    if (p_socket.is_open())
+        p_socket.close();
+    m_timeout.cancel();
     KDBG("Connection destroyed");
 }
 
@@ -28,7 +28,7 @@ void Connection::onTimeout(const error_code &err) {
         }
     } else {
         KDBG("Connection timed out");
-        socket.close();
+        p_socket.close();
     }
 }
 
@@ -38,16 +38,16 @@ Connection::Ptr Connection::create(io_context &io) {
 
 void Connection::asyncReadCmd(const CmdCallback &&cb,
                               const steady_timer::duration &timeout) {
-    _timeout.expires_after(timeout);
-    _timeout.async_wait(std::bind(&Connection::onTimeout, this, ph::_1));
+    m_timeout.expires_after(timeout);
+    m_timeout.async_wait(std::bind(&Connection::onTimeout, this, ph::_1));
     auto shared = shared_from_this();
-    async_read(socket, buffer(_buffer),
+    async_read(p_socket, buffer(m_buffer),
                [shared, this, cb](const error_code &err, size_t read) {
                    Cmd cmd;
                    if (!err || err == error::eof) {
-                       _timeout.cancel();
+                       m_timeout.cancel();
                        error_code ec;
-                       std::string buf{_buffer.begin(), _buffer.end()};
+                       std::string buf{m_buffer.begin(), m_buffer.end()};
                        cmd = Cmd::fromString(buf, ec);
                        if (ec) {
                            KDBG("Received connection but couldn't parse from "
@@ -69,11 +69,11 @@ void Connection::asyncWriteResponse(
     const Response &response,
     const std::function<void(const error_code &, Ptr)> &&cb) {
     auto shared = shared_from_this();
-    async_write(socket, buffer(response.toString()),
+    async_write(p_socket, buffer(response.toString()),
                 [shared, cb](const error_code &err, size_t read) {
                     if (err)
                         KDBG(err.message());
-                    shared->socket.shutdown(
+                    shared->p_socket.shutdown(
                         local::stream_protocol::socket::shutdown_send);
                     cb(err, shared);
                 });
@@ -82,11 +82,11 @@ void Connection::asyncWriteResponse(
 void Connection::asyncWriteCmd(
     const Cmd &cmd, std::function<void(const error_code &, Ptr)> &&cb) {
     auto shared = shared_from_this();
-    async_write(socket, buffer(cmd.toString()),
+    async_write(p_socket, buffer(cmd.toString()),
                 [shared, cb](const error_code &err, size_t read) {
                     if (err)
                         KDBG(err.message());
-                    shared->socket.shutdown(
+                    shared->p_socket.shutdown(
                         local::stream_protocol::socket::shutdown_send);
                     cb(err, shared);
                 });
@@ -95,16 +95,16 @@ void Connection::asyncWriteCmd(
 void Connection::asyncReadResponse(
     std::function<void(const error_code &, const Response &, Ptr)> &&cb,
     const steady_timer::duration &timeout) {
-    _timeout.expires_after(timeout);
-    _timeout.async_wait(std::bind(&Connection::onTimeout, this, ph::_1));
+    m_timeout.expires_after(timeout);
+    m_timeout.async_wait(std::bind(&Connection::onTimeout, this, ph::_1));
     auto shared = shared_from_this();
-    async_read(socket, buffer(_buffer),
+    async_read(p_socket, buffer(m_buffer),
                [shared, this, cb](const error_code &err, size_t read) {
                    Response response;
                    if (!err || err == error::eof) {
-                       _timeout.cancel();
+                       m_timeout.cancel();
                        error_code ec;
-                       std::string buf{_buffer.begin(), _buffer.end()};
+                       std::string buf{m_buffer.begin(), m_buffer.end()};
                        response = Response::fromString(buf, ec);
                        if (ec) {
                            KDBG("Received connection but couldn't parse from "

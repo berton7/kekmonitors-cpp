@@ -11,7 +11,7 @@ namespace kekmonitors {
 std::string getServerPath(const std::shared_ptr<Config> &config,
                           const std::string &socketName) {
     std::string serverPath{
-        config->parser.get<std::string>("GlobalConfig.socket_path")};
+        config->p_parser.get<std::string>("GlobalConfig.socket_path")};
     fs::create_directories(serverPath);
     serverPath += "/" + socketName;
     return serverPath;
@@ -19,36 +19,36 @@ std::string getServerPath(const std::shared_ptr<Config> &config,
 
 UnixServer::UnixServer(io_context &io, const std::string &socketName,
                        std::shared_ptr<Config> config)
-    : _io(io), _config(std::move(config)) {
-    if (!_config)
-        _config = std::make_shared<Config>();
-    _logger = utils::getLogger("UnixServer");
-    _serverPath = getServerPath(_config, socketName);
-    _acceptor =
-        std::make_unique<local::stream_protocol::acceptor>(_io, _serverPath);
-    _logger->info("Unix server initialized, accepting connections...");
+    : m_io(io), m_config(std::move(config)) {
+    if (!m_config)
+        m_config = std::make_shared<Config>();
+    m_logger = utils::getLogger("UnixServer");
+    m_serverPath = getServerPath(m_config, socketName);
+    m_acceptor =
+        std::make_unique<local::stream_protocol::acceptor>(m_io, m_serverPath);
+    m_logger->info("Unix server initialized, accepting connections...");
     startAccepting();
 };
 
 UnixServer::UnixServer(io_context &io, const std::string &socketName,
                        CallbackMap callbacks, std::shared_ptr<Config> config)
-    : _io(io), _config(std::move(config)), _callbacks(std::move(callbacks)) {
-    if (!_config)
-        _config = std::make_shared<Config>();
-    _logger = utils::getLogger("UnixServer");
-    _serverPath = getServerPath(_config, socketName);
-    _acceptor =
-        std::make_unique<local::stream_protocol::acceptor>(_io, _serverPath);
-    _logger->info("Unix server initialized, accepting connections...");
+    : m_io(io), m_config(std::move(config)), p_callbacks(std::move(callbacks)) {
+    if (!m_config)
+        m_config = std::make_shared<Config>();
+    m_logger = utils::getLogger("UnixServer");
+    m_serverPath = getServerPath(m_config, socketName);
+    m_acceptor =
+        std::make_unique<local::stream_protocol::acceptor>(m_io, m_serverPath);
+    m_logger->info("Unix server initialized, accepting connections...");
     startAccepting();
 }
 
 UnixServer::~UnixServer(){};
 
 void UnixServer::startAccepting() {
-    auto connection = Connection::create(_io);
-    _acceptor->async_accept(
-        connection->socket,
+    auto connection = Connection::create(m_io);
+    m_acceptor->async_accept(
+        connection->p_socket,
         std::bind(&UnixServer::onConnect, this, ph::_1, connection));
 };
 
@@ -68,21 +68,21 @@ void UnixServer::_handleCallback(const error_code &err, const Cmd &cmd,
         KDBG("Error: " + err.message());
         return;
     }
-    auto command = static_cast<uint32_t>(cmd.getCmd());
+    auto command = static_cast<uint32_t>(cmd.cmd());
     try {
-        _logger->info("Received cmd " + utils::commandToString(cmd.getCmd()));
+        m_logger->info("Received cmd " + utils::commandToString(cmd.cmd()));
     } catch (std::out_of_range &) {
-        _logger->info("Received cmd " +
-                      std::to_string(static_cast<uint32_t>(cmd.getCmd())));
+        m_logger->info("Received cmd " +
+                      std::to_string(static_cast<uint32_t>(cmd.cmd())));
     }
     try {
-        _callbacks.at(cmd.getCmd())(
+        p_callbacks.at(cmd.cmd())(
             cmd,
             std::bind(&Connection::asyncWriteResponse, connection, ph::_1,
                       [](const error_code &, Connection::Ptr) {}),
             connection);
     } catch (std::out_of_range &e) {
-        _logger->warn("Cmd " + std::to_string(command) + " was not registered");
+        m_logger->warn("Cmd " + std::to_string(command) + " was not registered");
         Response resp;
         resp.setError(ERRORS::UNRECOGNIZED_COMMAND);
         connection->asyncWriteResponse(
@@ -91,8 +91,8 @@ void UnixServer::_handleCallback(const error_code &err, const Cmd &cmd,
 }
 
 void UnixServer::shutdown() {
-    _logger->info("Closing server");
-    _acceptor->close();
-    ::unlink(_serverPath.c_str());
+    m_logger->info("Closing server");
+    m_acceptor->close();
+    ::unlink(m_serverPath.c_str());
 }
 } // namespace kekmonitors

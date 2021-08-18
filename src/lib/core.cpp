@@ -112,19 +112,19 @@ void init() {
 
 CommandStringMap &commandStringMap()
 {
-    static CommandStringMap map;
-    return map;
+    static CommandStringMap s_commandStringMap;
+    return s_commandStringMap;
 }
 
 ErrorStringMap &errorStringMap()
 {
-    static ErrorStringMap map;
-    return map;
+    static ErrorStringMap s_errorStringMap;
+    return s_errorStringMap;
 }
 
 mongocxx::instance &initDbInstance()
 {
-    static mongocxx::instance instance;
-    return instance;
+    static mongocxx::instance s_dbInstance;
+    return s_dbInstance;
 }
 } // namespace kekmonitors

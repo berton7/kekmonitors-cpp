@@ -21,14 +21,14 @@ class Connection : public std::enable_shared_from_this<Connection> {
     typedef std::shared_ptr<Connection> Ptr;
 
   private:
-    io_context &_io;
-    std::vector<char> _buffer;
-    steady_timer _timeout;
+    io_context &m_io;
+    std::vector<char> m_buffer;
+    steady_timer m_timeout;
 
     void onTimeout(const error_code &);
 
   public:
-    local::stream_protocol::socket socket;
+    local::stream_protocol::socket p_socket;
 
     explicit Connection(io_context &);
     ~Connection();

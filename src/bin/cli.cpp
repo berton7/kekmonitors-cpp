@@ -66,9 +66,9 @@ int main(int argc, char *argv[]) {
     Config cfg;
     io_context io;
     auto connection = Connection::create(io);
-    connection->socket.async_connect(
+    connection->p_socket.async_connect(
         local::stream_protocol::endpoint(
-            cfg.parser.get<std::string>("GlobalConfig.socket_path") +
+            cfg.p_parser.get<std::string>("GlobalConfig.socket_path") +
             "/MonitorManager"),
         [=](const error_code &err) {
             if (!err)
@@ -80,17 +80,17 @@ int main(int argc, char *argv[]) {
                                 Connection::Ptr connection) {
                                 if (!err) {
                                     std::string errorStr{
-                                        utils::errorToString(resp.getError())};
-                                    if (resp.getError())
+                                        utils::errorToString(resp.error())};
+                                    if (resp.error())
                                         logger->error("[Error] {}", errorStr);
                                     else
                                         logger->info("[Cmd] {}", errorStr);
-                                    if (!resp.getInfo().empty())
+                                    if (!resp.info().empty())
                                         logger->info("[Info] {}",
-                                                     resp.getInfo());
-                                    if (!resp.getPayload().empty())
+                                                     resp.info());
+                                    if (!resp.payload().empty())
                                         logger->info("[Payload] {}",
-                                                     resp.getPayload().dump());
+                                                     resp.payload().dump());
                                 } else
                                     logger->error(err.message());
                             });

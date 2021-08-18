@@ -10,7 +10,7 @@ int main() {
     auto logger = kekmonitors::utils::getLogger("Stopmm");
     auto connection = kekmonitors::Connection::create(io);
     try {
-        connection->socket.connect(local::stream_protocol::endpoint(
+        connection->p_socket.connect(local::stream_protocol::endpoint(
             kekmonitors::utils::getLocalKekDir() + "/sockets/MonitorManager"));
     } catch (std::exception &) {
         logger->error("Couldn't connect to socket");
@@ -33,14 +33,14 @@ int main() {
                         logger->error(ec.message());
                         return;
                     }
-                    kekmonitors::ErrorType e = resp.getError();
-                    if ((e = resp.getError())) {
+                    kekmonitors::ErrorType e = resp.error();
+                    if ((e = resp.error())) {
                         logger->error(
-                            kekmonitors::utils::errorToString(resp.getError()));
-                        logger->error(resp.getInfo());
+                            kekmonitors::utils::errorToString(resp.error()));
+                        logger->error(resp.info());
                     } else {
                         logger->info(
-                            kekmonitors::utils::errorToString(resp.getError()));
+                            kekmonitors::utils::errorToString(resp.error()));
                     }
                 });
         });

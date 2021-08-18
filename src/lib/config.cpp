@@ -8,7 +8,7 @@ namespace pt = boost::property_tree;
 
 namespace kekmonitors {
 
-const std::string Config::defaultConfig = boost::str(
+const std::string Config::s_defaultConfig = boost::str(
     boost::format(
         "[GlobalConfig]\n"
         "socket_path = %s/sockets\n"
@@ -40,8 +40,8 @@ const std::string Config::defaultConfig = boost::str(
 Config::Config() {
     KDBG("Config constructor");
     std::string configPath = utils::getLocalKekDir() + "/config/config.cfg";
-    utils::getContentIfFileExistsElseCreate(configPath, defaultConfig);
-    pt::read_ini(configPath, parser);
+    utils::getContentIfFileExistsElseCreate(configPath, s_defaultConfig);
+    pt::read_ini(configPath, p_parser);
 }
 Config::~Config() { KDBG("Config destructor"); }
 } // namespace kekmonitors

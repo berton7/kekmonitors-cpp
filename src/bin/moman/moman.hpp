@@ -52,16 +52,16 @@ class StoredObject {
 
 class MonitorManager {
   private:
-    io_context &_io;
-    std::unique_ptr<UnixServer> _unixServer{nullptr};
-    std::shared_ptr<Config> _config{nullptr};
-    std::shared_ptr<spdlog::logger> _logger{nullptr};
-    std::unique_ptr<mongocxx::client> _kekDbConnection{nullptr};
-    mongocxx::database _kekDb{};
-    mongocxx::collection _monitorRegisterDb{};
-    mongocxx::collection _scraperRegisterDb{};
-    std::atomic<bool> _fileWatcherStop{false};
-    FileWatcher _fileWatcher;
+    io_context &m_io;
+    std::unique_ptr<UnixServer> m_unixServer{nullptr};
+    std::shared_ptr<Config> m_config{nullptr};
+    std::shared_ptr<spdlog::logger> m_logger{nullptr};
+    std::unique_ptr<mongocxx::client> m_kekDbConnection{nullptr};
+    mongocxx::database m_kekDb{};
+    mongocxx::collection m_monitorRegisterDb{};
+    mongocxx::collection m_scraperRegisterDb{};
+    std::atomic<bool> m_fileWatcherStop{false};
+    FileWatcher m_fileWatcher;
     std::unordered_map<std::string, StoredObject> _storedMonitors;
     std::unordered_map<std::string, StoredObject> _storedScrapers;
 
@@ -109,14 +109,14 @@ class MonitorScraperCompletion
     : public std::enable_shared_from_this<MonitorScraperCompletion> {
 
   private:
-    bool _bothCompleted{false};
-    io_context &_io;
-    const Cmd _cmd;
-    const DoubleResponseCallback _completionCb;
-    const MonitorManagerCallback _momanCb;
-    MonitorManager *_moman;
-    const std::shared_ptr<Connection> _connection;
-    Response _firstResponse;
+    bool m_bothCompleted{false};
+    io_context &m_io;
+    const Cmd m_cmd;
+    const DoubleResponseCallback m_completionCb;
+    const MonitorManagerCallback m_momanCb;
+    MonitorManager *m_moman;
+    const std::shared_ptr<Connection> m_connection;
+    Response m_firstResponse;
 
   public:
     MonitorScraperCompletion() = delete;

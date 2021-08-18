@@ -8,9 +8,9 @@
 namespace kekmonitors {
 class Config {
   public:
-    const static std::string defaultConfig;
+    const static std::string s_defaultConfig;
 
-    boost::property_tree::ptree parser;
+    boost::property_tree::ptree p_parser;
 
     Config();
     ~Config();
