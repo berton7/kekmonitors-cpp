@@ -142,5 +142,4 @@ std::shared_ptr<spdlog::logger> initDebugLogger();
 void initMaps();
 mongocxx::instance &initDbInstance();
 void init();
-mongocxx::instance &initDbInstance();
 } // namespace kekmonitors
