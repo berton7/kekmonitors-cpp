@@ -1,3 +1,4 @@
+#include <chrono>
 #include <climits>
 #include <iostream>
 #include <kekmonitors/config.hpp>
@@ -93,7 +94,7 @@ int main(int argc, char *argv[]) {
                                                      resp.payload().dump());
                                 } else
                                     logger->error(err.message());
-                            });
+                            }, std::chrono::seconds(10));
                     else
                         logger->error(err.message());
                 });
