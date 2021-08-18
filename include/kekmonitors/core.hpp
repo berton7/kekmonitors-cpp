@@ -138,7 +138,7 @@ typedef ErrorStringMap::value_type ErrorStringValue;
 CommandStringMap &commandStringMap();
 ErrorStringMap &errorStringMap();
 
-std::shared_ptr<spdlog::logger> initDebugLogger();
+void initDebugLogger();
 void initMaps();
 mongocxx::instance &initDbInstance();
 void init();

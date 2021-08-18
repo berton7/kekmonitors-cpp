@@ -2,6 +2,7 @@
 // Created by berton on 5/14/21.
 //
 #include <kekmonitors/core.hpp>
+#include <kekmonitors/config.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #define CORE_REGISTER_COMMAND(cmd)                                             \
@@ -19,13 +20,13 @@ std::string getStringWithoutNamespaces(const std::string &command) {
 }
 
 namespace kekmonitors {
-std::shared_ptr<spdlog::logger> initDebugLogger() {
+void initDebugLogger() {
     auto dbgLog = spdlog::stdout_color_st("KDBG");
     auto formatter = std::make_unique<spdlog::pattern_formatter>();
     dbgLog->set_pattern("%v");
     dbgLog->set_level(spdlog::level::debug);
-    return dbgLog;
 }
+
 void initMaps() {
     CORE_REGISTER_COMMAND(kekmonitors::COMMANDS::PING);
     CORE_REGISTER_COMMAND(kekmonitors::COMMANDS::STOP);
