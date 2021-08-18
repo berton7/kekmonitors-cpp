@@ -33,6 +33,7 @@ endif()
 
 if (${CMAKE_BUILD_TYPE} STREQUAL "" OR ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 	set(REQUIRED_MONGO_LIBS mongo::bsoncxx_shared mongo::mongocxx_shared)
+	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --save-temps")
 else()
 	set(REQUIRED_MONGO_LIBS mongo::bsoncxx_static mongo::mongocxx_static)
 endif()
