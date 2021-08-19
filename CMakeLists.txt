@@ -8,6 +8,26 @@ include(FetchContent)
 
 set(spdlog_version v1.8.5)
 set(json_version v3.9.1)
+set(fmt_version 8.0.1)
+
+# FIXME: CMAKE_ARGS not working
+
+FetchContent_Declare(
+		fmt
+		PREFIX fmt
+		SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/fmt
+		GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+		GIT_TAG ${fmt_version}
+		GIT_SHALLOW True
+		CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
+		-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+		-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+		-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+		-DCMAKE_INSTALL_PREFIX=${STAGING_DIR}
+		-DFMT_DOC=Off
+		-DFMT_TEST=Off
+)
+include_directories(${PROJECT_SOURCE_DIR}/deps/fmt/include)
 
 FetchContent_Declare(
 		spdlog
@@ -16,13 +36,13 @@ FetchContent_Declare(
 		GIT_REPOSITORY https://github.com/gabime/spdlog.git
 		GIT_TAG ${spdlog_version}
 		GIT_SHALLOW True
-		CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+		CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
 		-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
 		-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
 		-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
 		-DCMAKE_INSTALL_PREFIX=${STAGING_DIR}
 		-DSPDLOG_MASTER_PROJECT=OFF
-		-DSPDLOG_BUILD_SHARED=OFF
+		-DSPDLOG_BUILD_SHARED=On
 )
 include_directories(${PROJECT_SOURCE_DIR}/deps/spdlog/include)
 
@@ -37,6 +57,6 @@ FetchContent_Declare(
 )
 include_directories(${PROJECT_SOURCE_DIR}/deps/json/include)
 
-FetchContent_MakeAvailable(spdlog json)
+FetchContent_MakeAvailable(fmt spdlog json)
 
 add_subdirectory(src)

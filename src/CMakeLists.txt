@@ -42,7 +42,7 @@ set(MONGO_INCLUDE_DIRS "")
 get_target_property(MONGO_INCLUDE_DIRS mongo::mongocxx_shared INTERFACE_INCLUDE_DIRECTORIES)
 include_directories(${MONGO_INCLUDE_DIRS})
 
-add_dependencies(kekmonitors spdlog)
+add_dependencies(kekmonitors spdlog fmt)
 
 set(KEKMONITORS_LIB_DEPS kekmonitors pthread ${REQUIRED_BOOST_LIBS} ${REQUIRED_MONGO_LIBS})
 
