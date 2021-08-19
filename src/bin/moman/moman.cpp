@@ -2,6 +2,7 @@
 #include "kekmonitors/inotify-cxx.h"
 #include "kekmonitors/msg.hpp"
 #include "spdlog/common.h"
+#include "spdlog/fmt/bundled/core.h"
 #include "spdlog/logger.h"
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/local/stream_protocol.hpp>
@@ -11,7 +12,6 @@
 #include <bsoncxx/builder/basic/document.hpp>
 #include <bsoncxx/builder/basic/kvp.hpp>
 #include <bsoncxx/json.hpp>
-#include <cstdint>
 #include <filesystem>
 #include <iostream>
 #include <kekmonitors/core.hpp>
@@ -81,14 +81,15 @@ MonitorManager::MonitorManager(io_context &io)
     const auto &config = getConfig();
     m_dbClient = mongocxx::client{mongocxx::uri{
         config.p_parser.get<std::string>("GlobalConfig.db_path")}};
-    m_db = m_dbClient[config.p_parser.get<std::string>(
-        "GlobalConfig.db_name")];
+    m_db = m_dbClient[config.p_parser.get<std::string>("GlobalConfig.db_name")];
     m_monitorRegisterDb = m_db["register.monitors"];
     m_scraperRegisterDb = m_db["register.scrapers"];
     m_fileWatcher.inotify.Add(m_fileWatcher.watches.emplace_back(
         config.p_parser.get<std::string>("GlobalConfig.socket_path"),
         IN_CREATE | IN_DELETE));
     const fs::path configDir = utils::getLocalKekDir() + "/config";
+    m_fileWatcher.inotify.Add(m_fileWatcher.watches.emplace_back(
+        configDir.string(), IN_CREATE | IN_DELETE));
     for (const auto &configSubDir : {"common", "monitors", "scrapers"}) {
         const fs::path configSubPath = configDir / configSubDir;
         if (fs::is_directory(configSubPath)) {
@@ -140,35 +141,73 @@ void MonitorManager::onInotifyUpdate() {
                 const auto allowedFilenames = {"whitelists.json",
                                                "blacklists.json",
                                                "webhooks.json", "configs.json"};
-                switch (eventType) {
+                // since IN_ISDIR might be set, remove it.
+                // we can still retrieve it later.
+                auto m = eventType & ~IN_ISDIR;
+                switch (m) {
                 case IN_CREATE:
-                    if (std::find(allowedFilenames.begin(),
-                                  allowedFilenames.end(),
-                                  filename) != allowedFilenames.end()) {
-                        m_fileWatcher.watches.emplace_back(
-                            eventPath, IN_CREATE | IN_DELETE | IN_DELETE_SELF);
-                        m_logger->info(
-                            "New config file created and monitored: {}",
-                            fullEventPath);
+                    if (eventType & IN_ISDIR) {
+                        if (std::find(allowedConfigSubDir.begin(),
+                                      allowedConfigSubDir.end(),
+                                      filename) != allowedConfigSubDir.end()) {
+                            m_fileWatcher.inotify.Add(
+                                m_fileWatcher.watches.emplace_back(
+                                    fullEventPath, IN_CREATE | IN_DELETE));
+                            m_logger->info(
+                                "New config folder created and monitored: {}",
+                                fullEventPath);
+                        }
+                        break;
+                    } else {
+                        if (std::find(allowedFilenames.begin(),
+                                      allowedFilenames.end(),
+                                      filename) != allowedFilenames.end()) {
+                            bool alreadyMonitored{false};
+                            for (const auto &watch : m_fileWatcher.watches) {
+                                if (watch.GetPath() == fullEventPath) {
+                                    alreadyMonitored = true;
+                                    break;
+                                }
+                            }
+                            if (!alreadyMonitored) {
+                                m_fileWatcher.inotify.Add(
+                                    m_fileWatcher.watches.emplace_back(
+                                        fullEventPath, IN_MODIFY));
+                                m_logger->info(
+                                    "New config file created and monitored: {}",
+                                    fullEventPath);
+                                checkAndUpdateConfigs(fullEventPath, filename);
+                                break;
+                            }
+
+                            // if alreadyMonitored it's probably been edited
+                            // go ahead and update
+                        } else
+                            break;
                     }
-                    break;
                 case IN_MODIFY:
+                case IN_CLOSE_NOWRITE:
+                case IN_CLOSE_WRITE:
                     m_logger->info("File {} has changed", fullEventPath);
+                    checkAndUpdateConfigs(fullEventPath, filename);
                     break;
                 case IN_DELETE:
-                    if (std::find(allowedFilenames.begin(),
-                                  allowedFilenames.end(),
-                                  filename) != allowedFilenames.end()) {
+                    auto &allowedNames = eventType & IN_ISDIR
+                                             ? allowedConfigSubDir
+                                             : allowedFilenames;
+                    if (std::find(allowedNames.begin(), allowedNames.end(),
+                                  filename) != allowedNames.end()) {
                         for (auto watch = m_fileWatcher.watches.begin();
-                             watch != m_fileWatcher.watches.end();) {
+                             watch != m_fileWatcher.watches.end(); ++watch) {
                             if (watch->GetPath() == fullEventPath) {
                                 m_fileWatcher.inotify.Remove(*watch);
                                 m_fileWatcher.watches.erase(watch);
-                                m_logger->warn("Config file was removed: {}",
+                                m_logger->warn("Config {} was removed: {}",
+                                               eventType & IN_ISDIR ? "folder"
+                                                                    : "file",
                                                fullEventPath);
                                 break;
-                            } else
-                                ++watch;
+                            }
                         }
                     }
                     break;
@@ -176,6 +215,22 @@ void MonitorManager::onInotifyUpdate() {
             }
         }
     }
+}
+
+void MonitorManager::checkAndUpdateConfigs(const std::string &fullPath,
+                                           const std::string &filename) {
+    std::ifstream configStream(fullPath);
+    if (!configStream.is_open()) {
+        m_logger->error("Error while opening file {}", fullPath);
+    }
+    json configJson;
+    try {
+        configStream >> configJson;
+        m_logger->debug(configJson.dump(4));
+    } catch (json::parse_error &e) {
+        m_logger->warn("Config file {} is not in valid json", fullPath);
+    }
+    configStream.close();
 }
 
 void MonitorManager::onProcessExit(int exit, const std::error_code &ec,
