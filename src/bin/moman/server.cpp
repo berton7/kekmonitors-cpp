@@ -50,11 +50,10 @@ void UnixServer::onConnect(const error_code &err,
                                            ph::_1, ph::_2, connection));
         startAccepting();
     } else {
-        if (err != error::operation_aborted){
-	    if (m_acceptor->is_open())
+        if (err != error::operation_aborted && m_acceptor->is_open()) {
             m_logger->error("Error while accepting connection: {}",
                             err.message());
-	}else
+        } else if (m_acceptor->is_open())
             startAccepting();
     }
 }
