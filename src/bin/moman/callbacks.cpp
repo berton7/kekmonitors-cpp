@@ -177,6 +177,7 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
             boost::process::std_out > boost::process::null,
             boost::process::std_err > boost::process::null, m_io,
             boost::process::on_exit(onExitCb));
+        obj.p_isBeingAdded = true;
         obj.p_onAddTimer = delayTimer;
     } else {
         StoredObject obj{className};
