@@ -173,7 +173,7 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
     if (it != storedObjects.end()) {
         StoredObject &obj = it->second;
         obj.p_process = std::make_unique<Process>(
-            className, pythonExecutable + " " + path,
+            className, pythonExecutable + " " + path + " --no-config-watcher --no-output",
             boost::process::std_out > boost::process::null,
             boost::process::std_err > boost::process::null, m_io,
             boost::process::on_exit(onExitCb));
@@ -181,7 +181,7 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
     } else {
         StoredObject obj{className};
         obj.p_process = std::make_unique<Process>(
-            className, pythonExecutable + " " + path,
+            className, pythonExecutable + " " + path + " --no-config-watcher --no-output",
             boost::process::std_out > boost::process::null,
             boost::process::std_err > boost::process::null, m_io,
             boost::process::on_exit(onExitCb));
