@@ -176,7 +176,7 @@ void MonitorManager::onInotifyUpdate() {
                                 m_logger->info(
                                     "New config file created and monitored: {}",
                                     fullEventPath);
-                                checkAndUpdateConfigs(fullEventPath, filename);
+                                parseAndSendConfigs(fullEventPath, filename);
                                 break;
                             }
 
@@ -189,7 +189,7 @@ void MonitorManager::onInotifyUpdate() {
                 case IN_CLOSE_NOWRITE:
                 case IN_CLOSE_WRITE:
                     m_logger->info("File {} has changed", fullEventPath);
-                    checkAndUpdateConfigs(fullEventPath, filename);
+                    parseAndSendConfigs(fullEventPath, filename);
                     break;
                 case IN_DELETE:
                     auto &allowedNames = eventType & IN_ISDIR
@@ -217,8 +217,8 @@ void MonitorManager::onInotifyUpdate() {
     }
 }
 
-void MonitorManager::checkAndUpdateConfigs(const std::string &fullPath,
-                                           const std::string &filename) {
+void MonitorManager::parseAndSendConfigs(const std::string &fullPath,
+                                         const std::string &filename) {
     std::ifstream configStream(fullPath);
     if (!configStream.is_open()) {
         m_logger->error("Error while opening file {}", fullPath);
@@ -226,11 +226,120 @@ void MonitorManager::checkAndUpdateConfigs(const std::string &fullPath,
     json configJson;
     try {
         configStream >> configJson;
-        m_logger->debug(configJson.dump(4));
+        configStream.close();
     } catch (json::parse_error &e) {
         m_logger->warn("Config file {} is not in valid json", fullPath);
+        return;
     }
-    configStream.close();
+    if (!configJson.is_object()) {
+        m_logger->warn("Config file {} is not a dict", fullPath);
+        return;
+    }
+    Cmd cmd;
+    std::string configSubDir;
+    bool flag{false};
+    size_t lastSlash{0};
+    for (size_t i = fullPath.length() - 1; i >= 0; --i) {
+        if (fullPath[i] == fs::path::preferred_separator) {
+            if (!flag) {
+                lastSlash = i;
+                flag = true;
+            } else {
+                configSubDir = fullPath.substr(i + 1, lastSlash - i - 1);
+                break;
+            }
+        }
+    }
+    if (configSubDir.empty()) {
+        m_logger->error("Could not understand configSubDir");
+        return;
+    }
+
+    if (filename == "webhooks.json")
+        cmd.setCmd(configSubDir == "common" ? COMMANDS::SET_COMMON_WEBHOOKS
+                                            : COMMANDS::SET_SPECIFIC_WEBHOOKS);
+    else if (filename == "whitelists.json")
+        cmd.setCmd(configSubDir == "common" ? COMMANDS::SET_COMMON_WHITELIST
+                                            : COMMANDS::SET_SPECIFIC_WHITELIST);
+    else if (filename == "blacklists.json")
+        cmd.setCmd(configSubDir == "common" ? COMMANDS::SET_COMMON_BLACKLIST
+                                            : COMMANDS::SET_SPECIFIC_BLACKLIST);
+    else if (filename == "configs.json")
+        cmd.setCmd(configSubDir == "common" ? COMMANDS::SET_COMMON_CONFIG
+                                            : COMMANDS::SET_SPECIFIC_CONFIG);
+
+    for (json::const_iterator it = configJson.cbegin(); it != configJson.cend();
+         ++it) {
+        cmd.setPayload(configJson.at(it.key()));
+        auto s = cmd.toString();
+        if (configSubDir == "monitors" || configSubDir == "common") {
+            sendCmd(MonitorOrScraper::Monitor, cmd, it.key());
+        };
+        if (configSubDir == "scrapers" || configSubDir == "common") {
+            sendCmd(MonitorOrScraper::Scraper, cmd, it.key());
+        }
+    }
+}
+
+void MonitorManager::sendCmd(MonitorOrScraper m, const Cmd &cmd,
+                             const std::string &className) {
+    auto &storedObjects =
+        m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
+    const auto it = storedObjects.find(className);
+    if (it != storedObjects.end()) {
+        if (it->second.p_socket) {
+            auto connection = Connection::create(m_io);
+            const auto mstring =
+                m == MonitorOrScraper::Monitor ? "Monitor" : "Scraper";
+
+            const std::string ep =
+                fmt::format("{}/sockets/{}.{}", utils::getLocalKekDir(),
+                            mstring, className);
+            connection->p_socket.async_connect(
+                local::stream_protocol::endpoint(ep),
+                [=](const error_code &errc) {
+                    if (errc) {
+                        if (errc != boost::system::errc::operation_canceled) {
+                            m_logger->error(
+                                "Error trying to connect to {} {}: {}", mstring,
+                                className, errc.message());
+                        }
+                        return;
+                    }
+                    connection->asyncWriteCmd(cmd, [=](const error_code &errc,
+                                                       Connection::Ptr
+                                                           connection) {
+                        if (errc) {
+                            if (errc !=
+                                boost::system::errc::operation_canceled) {
+                                m_logger->error(
+                                    "Error trying to write cmd to {} {}: {}",
+                                    mstring, className, errc.message());
+                            }
+                            return;
+                        }
+                        connection->asyncReadResponse([=](const error_code
+                                                              &errc,
+                                                          const Response &r,
+                                                          Connection::Ptr) {
+                            if (errc) {
+                                if (errc !=
+                                    boost::system::errc::operation_canceled) {
+                                    m_logger->error("Error trying to read "
+                                                    "response from {} {}: {}",
+                                                    mstring, className,
+                                                    errc.message());
+                                }
+                                return;
+                            }
+                            if (r.error()) {
+                                m_logger->warn(r.toString());
+                            }
+                        });
+                    });
+                });
+        }
+    }
 }
 
 void MonitorManager::onProcessExit(int exit, const std::error_code &ec,
@@ -243,7 +352,8 @@ void MonitorManager::onProcessExit(int exit, const std::error_code &ec,
                         ec.message());
     } else {
         m_logger->log(exit ? spdlog::level::warn : spdlog::level::info,
-                      "Monitor {} has exited with code {}", className, exit);
+                      "{} {} has exited with code {}", monitorOrScraper,
+                      className, exit);
         auto &map =
             m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
         auto it = map.find(className);

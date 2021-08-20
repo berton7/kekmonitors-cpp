@@ -73,7 +73,11 @@ class MonitorManager {
                        const std::string &socketName,
                        const std::string &socketFullPath);
 
-    void checkAndUpdateConfigs(const std::string &fullPath, const std::string &filename);
+    void parseAndSendConfigs(const std::string &fullPath,
+                             const std::string &filename);
+
+    void sendCmd(const MonitorOrScraper, const Cmd &cmd,
+                 const std::string &className);
 
   public:
     MonitorManager() = delete;
