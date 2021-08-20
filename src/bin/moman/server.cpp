@@ -38,7 +38,7 @@ UnixServer::~UnixServer(){};
 void UnixServer::startAccepting() {
     auto connection = Connection::create(m_io);
     m_acceptor->async_accept(
-        connection->p_socket,
+        connection->p_endpoint,
         std::bind(&UnixServer::onConnect, this, ph::_1, connection));
 };
 

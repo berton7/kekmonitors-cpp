@@ -289,9 +289,9 @@ void MonitorManager::onGetStatus(const MonitorOrScraper m, const Cmd &cmd,
             monitoredProcesses[storedObject.p_className] =
                 storedObject.p_process->toJson();
         }
-        if (storedObject.p_socket) {
+        if (storedObject.p_endpoint) {
             monitoredSockets[storedObject.p_className] =
-                storedObject.p_socket->path();
+                storedObject.p_endpoint->path();
         }
     }
     payload["monitored_processes"] = monitoredProcesses;
@@ -352,7 +352,7 @@ void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
         m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
 
     auto it = storedObjects.find(className);
-    if (it == storedObjects.end() || !it->second.p_socket) {
+    if (it == storedObjects.end() || !it->second.p_endpoint) {
         response.setError(ERRORS::SOCKET_DOESNT_EXIST);
         response.setInfo(std::string{m == MonitorOrScraper::Monitor
                                          ? "Monitor "
@@ -375,9 +375,9 @@ void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
     }
 
     storedObject.p_isBeingStopped = true;
-    auto &ep = storedObject.p_socket;
+    auto &ep = storedObject.p_endpoint;
     auto newConn = Connection::create(m_io);
-    newConn->p_socket.connect(*ep);
+    newConn->p_endpoint.connect(*ep);
     Cmd newCmd;
     newCmd.setCmd(COMMANDS::STOP);
     newConn->asyncWriteCmd(newCmd, [=](const error_code &errc,

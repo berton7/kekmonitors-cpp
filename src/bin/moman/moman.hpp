@@ -1,5 +1,6 @@
 #pragma once
 #include "server.hpp"
+#include <boost/asio/detail/cstdint.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <kekmonitors/core.hpp>
 #include <kekmonitors/inotify-cxx.h>
@@ -23,7 +24,7 @@ class FileWatcher {
 class StoredObject {
   public:
     std::unique_ptr<Process> p_process{nullptr};
-    std::unique_ptr<local::stream_protocol::endpoint> p_socket{nullptr};
+    std::unique_ptr<local::stream_protocol::endpoint> p_endpoint{nullptr};
     std::shared_ptr<steady_timer> p_onAddTimer{nullptr};
     std::shared_ptr<steady_timer> p_onStopTimer{nullptr};
     UserResponseCallback p_stopCallback;
@@ -34,8 +35,8 @@ class StoredObject {
 
     StoredObject(std::string className) : p_className(std::move(className)){};
     StoredObject(StoredObject &&other)
-        : p_process{std::move(other.p_process)}, p_socket{std::move(
-                                                     other.p_socket)},
+        : p_process{std::move(other.p_process)}, p_endpoint{std::move(
+                                                     other.p_endpoint)},
           p_onAddTimer(std::move(other.p_onAddTimer)),
           p_onStopTimer(std::move(other.p_onStopTimer)),
           p_stopCallback(std::move(other.p_stopCallback)),
@@ -69,14 +70,13 @@ class MonitorManager {
     void onProcessExit(int exit, const std::error_code &, MonitorOrScraper,
                        const std::string &className);
 
-    void updateSockets(MonitorOrScraper, const uint32_t eventType,
-                       const std::string &socketName,
-                       const std::string &socketFullPath);
+    void checkSocketAndUpdateList(const std::string &socketFullPath,
+                       std::string socketName = "", uint32_t mask = 0);
 
     void parseAndSendConfigs(const std::string &fullPath,
                              const std::string &filename);
 
-    void sendCmd(const MonitorOrScraper, const Cmd &cmd,
+    void sendCmdIfProcess(const MonitorOrScraper, const Cmd &cmd,
                  const std::string &className);
 
   public:
@@ -146,7 +146,7 @@ class MonitorScraperCompletion
 template <typename Map, typename Iterator>
 void removeStoredSocket(Map &map, Iterator &it) {
     auto &stored = it->second;
-    stored.p_socket = nullptr;
+    stored.p_endpoint = nullptr;
     if (!stored.p_process)
         it = map.erase(it);
 }
@@ -155,7 +155,7 @@ template <typename Map, typename Iterator>
 void removeStoredProcess(Map &map, Iterator &it) {
     auto &stored = it->second;
     stored.p_process = nullptr;
-    if (!stored.p_socket)
+    if (!stored.p_endpoint)
         it = map.erase(it);
 }
 

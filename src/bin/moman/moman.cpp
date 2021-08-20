@@ -12,6 +12,7 @@
 #include <bsoncxx/builder/basic/document.hpp>
 #include <bsoncxx/builder/basic/kvp.hpp>
 #include <bsoncxx/json.hpp>
+#include <cstdint>
 #include <filesystem>
 #include <iostream>
 #include <kekmonitors/core.hpp>
@@ -84,6 +85,15 @@ MonitorManager::MonitorManager(io_context &io)
     m_db = m_dbClient[config.p_parser.get<std::string>("GlobalConfig.db_name")];
     m_monitorRegisterDb = m_db["register.monitors"];
     m_scraperRegisterDb = m_db["register.scrapers"];
+
+    for (const auto &file :
+         fs::directory_iterator{utils::getLocalKekDir() + "/sockets/"}) {
+        const auto filepath = file.path();
+        if (is_socket(filepath)) {
+            checkSocketAndUpdateList(filepath, filepath.filename(), IN_CREATE);
+        }
+    }
+
     m_fileWatcher.inotify.Add(m_fileWatcher.watches.emplace_back(
         config.p_parser.get<std::string>("GlobalConfig.socket_path"),
         IN_CREATE | IN_DELETE));
@@ -130,10 +140,8 @@ void MonitorManager::onInotifyUpdate() {
                     eventType & IN_DELETE) {
                     std::string socketFullPath{
                         eventPath + fs::path::preferred_separator + filename};
-                    updateSockets(MonitorOrScraper::Monitor, eventType,
-                                  filename, socketFullPath);
-                    updateSockets(MonitorOrScraper::Scraper, eventType,
-                                  filename, socketFullPath);
+                    checkSocketAndUpdateList(socketFullPath, filename,
+                                             eventType);
                 }
             } else {
                 const auto allowedConfigSubDir = {"common", "monitors",
@@ -270,34 +278,30 @@ void MonitorManager::parseAndSendConfigs(const std::string &fullPath,
 
     for (json::const_iterator it = configJson.cbegin(); it != configJson.cend();
          ++it) {
-        cmd.setPayload(configJson.at(it.key()));
+        const std::string &className = it.key();
+        cmd.setPayload(configJson.at(className));
         auto s = cmd.toString();
         if (configSubDir == "monitors" || configSubDir == "common") {
-            sendCmd(MonitorOrScraper::Monitor, cmd, it.key());
+            sendCmdIfProcess(MonitorOrScraper::Monitor, cmd, className);
         };
         if (configSubDir == "scrapers" || configSubDir == "common") {
-            sendCmd(MonitorOrScraper::Scraper, cmd, it.key());
+            sendCmdIfProcess(MonitorOrScraper::Scraper, cmd, className);
         }
     }
 }
 
-void MonitorManager::sendCmd(MonitorOrScraper m, const Cmd &cmd,
-                             const std::string &className) {
+void MonitorManager::sendCmdIfProcess(MonitorOrScraper m, const Cmd &cmd,
+                                      const std::string &className) {
     auto &storedObjects =
         m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
     const auto it = storedObjects.find(className);
     if (it != storedObjects.end()) {
-        if (it->second.p_socket) {
+        if (it->second.p_process && it->second.p_endpoint) {
             auto connection = Connection::create(m_io);
             const auto mstring =
                 m == MonitorOrScraper::Monitor ? "Monitor" : "Scraper";
-
-            const std::string ep =
-                fmt::format("{}/sockets/{}.{}", utils::getLocalKekDir(),
-                            mstring, className);
-            connection->p_socket.async_connect(
-                local::stream_protocol::endpoint(ep),
-                [=](const error_code &errc) {
+            connection->p_endpoint.async_connect(
+                *(it->second.p_endpoint), [=](const error_code &errc) {
                     if (errc) {
                         if (errc != boost::system::errc::operation_canceled) {
                             m_logger->error(
@@ -363,43 +367,55 @@ void MonitorManager::onProcessExit(int exit, const std::error_code &ec,
     }
 }
 
-void MonitorManager::updateSockets(MonitorOrScraper m, const uint32_t eventType,
-                                   const std::string &socketName,
-                                   const std::string &socketFullPath) {
-    std::string type{m == MonitorOrScraper::Monitor ? "Monitor." : "Scraper."};
-    const auto typeLen = type.length();
-    if (socketName.substr(0, typeLen) == type) {
-        auto &map =
-            m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
-        std::string className{
-            socketName.substr(typeLen, socketName.length() - typeLen)};
-        auto it = map.find(className);
-        switch (eventType) {
-        case IN_CREATE:
-            KDBG("Socket was created, className: " + className);
-            if (it != map.end()) {
-                auto &storedObject = it->second;
-                storedObject.p_socket =
-                    std::make_unique<local::stream_protocol::endpoint>(
-                        socketFullPath);
-                if (storedObject.p_isBeingAdded) {
-                    storedObject.p_confirmAdded = true;
-                    storedObject.p_onAddTimer->cancel();
-                }
-            } else {
-                StoredObject obj(className);
-                obj.p_socket =
-                    std::make_unique<local::stream_protocol::endpoint>(
-                        socketFullPath);
-                map.emplace(std::make_pair(className, std::move(obj)));
+void MonitorManager::checkSocketAndUpdateList(const std::string &socketFullPath,
+                                              std::string socketName,
+                                              uint32_t mask) {
+    if (socketName.empty()) {
+        socketName = socketFullPath.substr(
+            socketFullPath.rfind(fs::path::preferred_separator) + 1);
+    }
+    auto dotIndex = socketName.rfind(".");
+    if (dotIndex == std::string::npos) {
+        KDBG("Invalid socket path: " + socketFullPath);
+        return;
+    }
+    std::string socketPrefix = socketName.substr(0, dotIndex);
+    MonitorOrScraper m;
+    if (socketPrefix == "Monitor") {
+        m = MonitorOrScraper::Monitor;
+    } else if (socketPrefix == "Scraper") {
+        m = MonitorOrScraper::Scraper;
+    } else {
+        return;
+    }
+    auto &map =
+        m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
+    std::string className{socketName.substr(dotIndex + 1)};
+    auto it = map.find(className);
+    switch (mask) {
+    case IN_CREATE:
+        KDBG("Socket was created, className: " + className);
+        if (it != map.end()) {
+            auto &storedObject = it->second;
+            storedObject.p_endpoint =
+                std::make_unique<local::stream_protocol::endpoint>(
+                    socketFullPath);
+            if (storedObject.p_isBeingAdded) {
+                storedObject.p_confirmAdded = true;
+                storedObject.p_onAddTimer->cancel();
             }
+        } else {
+            StoredObject obj(className);
+            obj.p_endpoint = std::make_unique<local::stream_protocol::endpoint>(
+                socketFullPath);
+            map.emplace(std::make_pair(className, std::move(obj)));
+        }
+        break;
+    case IN_DELETE:
+        if (it != map.end()) {
+            KDBG("Socket was destroyed, className: " + className);
+            removeStoredSocket(map, it);
             break;
-        case IN_DELETE:
-            if (it != map.end()) {
-                KDBG("Socket was destroyed, className: " + className);
-                removeStoredSocket(map, it);
-                break;
-            }
         }
     }
 }
