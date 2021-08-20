@@ -124,6 +124,15 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
             cb(response, connection);
             return;
         }
+        if (it->second.p_endpoint) {
+            response.setError(genericError);
+            response.setInfo(
+                std::string{
+                    (m == MonitorOrScraper::Monitor ? "Monitor" : "Scraper")} +
+                " already has a socket available.");
+            cb(response, connection);
+            return;
+        }
     }
 
     const auto pythonExecutable = utils::getPythonExecutable().generic_string();
