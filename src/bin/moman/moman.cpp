@@ -394,7 +394,7 @@ void MonitorManager::checkSocketAndUpdateList(const std::string &socketFullPath,
     auto it = map.find(className);
     switch (mask) {
     case IN_CREATE:
-        KDBG("Socket was created, className: " + className);
+        KDBG(fmt::format("Socket {} was inserted", className));
         if (it != map.end()) {
             auto &storedObject = it->second;
             storedObject.p_endpoint =
@@ -413,7 +413,7 @@ void MonitorManager::checkSocketAndUpdateList(const std::string &socketFullPath,
         break;
     case IN_DELETE:
         if (it != map.end()) {
-            KDBG("Socket was destroyed, className: " + className);
+            KDBG(fmt::format("Socket {} was removed", className));
             removeStoredSocket(map, it);
             break;
         }
