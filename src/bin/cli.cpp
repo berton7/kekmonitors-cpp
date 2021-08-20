@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
     Config cfg;
     io_context io;
     auto connection = Connection::create(io);
-    connection->p_endpoint.async_connect(
+    connection->p_socket.async_connect(
         local::stream_protocol::endpoint(
             cfg.p_parser.get<std::string>("GlobalConfig.socket_path") +
             "/MonitorManager"),

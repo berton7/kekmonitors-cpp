@@ -9,13 +9,13 @@
 namespace kekmonitors {
 
 Connection::Connection(io_context &io)
-    : m_io(io), m_buffer(1024), p_endpoint(io), m_timeout(io) {
+    : m_io(io), m_buffer(1024), p_socket(io), m_timeout(io) {
     KDBG("Allocating new connection");
 }
 
 Connection::~Connection() {
-    if (p_endpoint.is_open())
-        p_endpoint.close();
+    if (p_socket.is_open())
+        p_socket.close();
     m_timeout.cancel();
     KDBG("Connection destroyed");
 }
@@ -28,7 +28,7 @@ void Connection::onTimeout(const error_code &err) {
         }
     } else {
         KDBG("Connection timed out");
-        p_endpoint.close();
+        p_socket.close();
     }
 }
 
@@ -41,7 +41,7 @@ void Connection::asyncReadCmd(const CmdCallback &&cb,
     m_timeout.expires_after(timeout);
     m_timeout.async_wait(std::bind(&Connection::onTimeout, this, ph::_1));
     auto shared = shared_from_this();
-    async_read(p_endpoint, buffer(m_buffer),
+    async_read(p_socket, buffer(m_buffer),
                [shared, this, cb](const error_code &err, size_t read) {
                    Cmd cmd;
                    if (!err || err == error::eof) {
@@ -69,11 +69,11 @@ void Connection::asyncWriteResponse(
     const Response &response,
     const std::function<void(const error_code &, Ptr)> &&cb) {
     auto shared = shared_from_this();
-    async_write(p_endpoint, buffer(response.toString()),
+    async_write(p_socket, buffer(response.toString()),
                 [shared, cb](const error_code &err, size_t read) {
                     if (err)
                         KDBG(err.message());
-                    shared->p_endpoint.shutdown(
+                    shared->p_socket.shutdown(
                         local::stream_protocol::socket::shutdown_send);
                     cb(err, shared);
                 });
@@ -82,11 +82,11 @@ void Connection::asyncWriteResponse(
 void Connection::asyncWriteCmd(
     const Cmd &cmd, std::function<void(const error_code &, Ptr)> &&cb) {
     auto shared = shared_from_this();
-    async_write(p_endpoint, buffer(cmd.toString()),
+    async_write(p_socket, buffer(cmd.toString()),
                 [shared, cb](const error_code &err, size_t read) {
                     if (err)
                         KDBG(err.message());
-                    shared->p_endpoint.shutdown(
+                    shared->p_socket.shutdown(
                         local::stream_protocol::socket::shutdown_send);
                     cb(err, shared);
                 });
@@ -98,7 +98,7 @@ void Connection::asyncReadResponse(
     m_timeout.expires_after(timeout);
     m_timeout.async_wait(std::bind(&Connection::onTimeout, this, ph::_1));
     auto shared = shared_from_this();
-    async_read(p_endpoint, buffer(m_buffer),
+    async_read(p_socket, buffer(m_buffer),
                [shared, this, cb](const error_code &err, size_t read) {
                    Response response;
                    if (!err || err == error::eof) {

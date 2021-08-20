@@ -10,7 +10,7 @@ int main() {
     auto logger = kekmonitors::utils::getLogger("Stopmm");
     auto connection = kekmonitors::Connection::create(io);
     try {
-        connection->p_endpoint.connect(local::stream_protocol::endpoint(
+        connection->p_socket.connect(local::stream_protocol::endpoint(
             kekmonitors::utils::getLocalKekDir() + "/sockets/MonitorManager"));
     } catch (std::exception &) {
         logger->error("Couldn't connect to socket");

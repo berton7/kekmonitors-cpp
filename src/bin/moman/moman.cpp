@@ -302,7 +302,7 @@ void MonitorManager::sendCmdIfProcess(MonitorOrScraper m, const Cmd &cmd,
             auto connection = Connection::create(m_io);
             const auto mstring =
                 m == MonitorOrScraper::Monitor ? "Monitor" : "Scraper";
-            connection->p_endpoint.async_connect(
+            connection->p_socket.async_connect(
                 *(it->second.p_endpoint), [=](const error_code &errc) {
                     if (errc) {
                         if (errc != boost::system::errc::operation_canceled) {

@@ -1,3 +1,4 @@
+#include "kekmonitors/core.hpp"
 #include "moman.hpp"
 #include <boost/asio/error.hpp>
 #include <boost/process/detail/on_exit.hpp>
@@ -13,8 +14,7 @@ MonitorScraperCompletion::MonitorScraperCompletion(
     Connection::Ptr connection)
     : m_io(io), m_cmd(std::move(cmd)), m_completionCb(std::move(completionCb)),
       m_momanCb(std::move(momanCb)), m_moman(moman),
-      m_connection(std::move(connection)) {
-};
+      m_connection(std::move(connection)){};
 
 MonitorScraperCompletion::~MonitorScraperCompletion() {}
 
@@ -161,8 +161,8 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
 
     if (!optRegisteredMonitor) {
         m_logger->debug("Tried to add {} {} but it was not registered",
-                       m == MonitorOrScraper::Monitor ? "monitor" : "scraper",
-                       className);
+                        m == MonitorOrScraper::Monitor ? "monitor" : "scraper",
+                        className);
         response.setError(m == MonitorOrScraper::Monitor
                               ? ERRORS::MONITOR_NOT_REGISTERED
                               : ERRORS::SCRAPER_NOT_REGISTERED);
@@ -181,7 +181,8 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
     if (it != storedObjects.end()) {
         StoredObject &obj = it->second;
         obj.p_process = std::make_unique<Process>(
-            className, pythonExecutable + " " + path + " --no-config-watcher --no-output",
+            className,
+            pythonExecutable + " " + path + " --no-config-watcher --no-output",
             boost::process::std_out > boost::process::null,
             boost::process::std_err > boost::process::null, m_io,
             boost::process::on_exit(onExitCb));
@@ -190,7 +191,8 @@ void MonitorManager::onAdd(const MonitorOrScraper m, const Cmd &cmd,
     } else {
         StoredObject obj{className};
         obj.p_process = std::make_unique<Process>(
-            className, pythonExecutable + " " + path + " --no-config-watcher --no-output",
+            className,
+            pythonExecutable + " " + path + " --no-config-watcher --no-output",
             boost::process::std_out > boost::process::null,
             boost::process::std_err > boost::process::null, m_io,
             boost::process::on_exit(onExitCb));
@@ -385,38 +387,53 @@ void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
 
     storedObject.p_isBeingStopped = true;
     auto &ep = storedObject.p_endpoint;
-    auto newConn = Connection::create(m_io);
-    newConn->p_endpoint.connect(*ep);
-    Cmd newCmd;
-    newCmd.setCmd(COMMANDS::STOP);
-    newConn->asyncWriteCmd(newCmd, [=](const error_code &errc,
-                                       Connection::Ptr conn) {
-        auto &storedObjects =
-            m == MonitorOrScraper::Monitor ? _storedMonitors : _storedScrapers;
-        auto it = storedObjects.find(className);
-        if (it != storedObjects.end()) {
-            removeStoredSocket(storedObjects, it);
-        }
-        if (!errc) {
-            KDBG("Sent STOP correctly");
-            conn->asyncReadResponse([=](const error_code &errc,
-                                        const Response &response,
-                                        Connection::Ptr conn) {
-                if (errc && errc != error::operation_aborted)
-                    m_logger->error("Error while waiting for stop response: {}", errc.message());
-                else
-                    m_logger->debug("Successfully stopped {}", className);
-                cb(response, conn);
-            });
-        } else {
+    auto stopConnection = Connection::create(m_io);
+    stopConnection->p_socket.async_connect(*ep, [=](const error_code &errc) {
+        if (errc)
+        {
             if (errc != error::operation_aborted)
-                m_logger->error(errc.message());
-            Response response;
-            response.setError(genericError);
-            response.setInfo("Failed to send the STOP command: " +
-                             errc.message());
-            cb(response, conn);
+            {
+                m_logger->error("Error while connecting to socket for stop: {}", errc.message());
+                auto r = Response::badResponse();
+                r.setError(m == MonitorOrScraper::Monitor ? ERRORS::MM_COULDNT_STOP_MONITOR : ERRORS::MM_COULDNT_STOP_SCRAPER);
+                cb(r, stopConnection);
+                return;
+            }
         }
+        Cmd newCmd;
+        newCmd.setCmd(COMMANDS::STOP);
+        stopConnection->asyncWriteCmd(newCmd, [=](const error_code &errc,
+                                           Connection::Ptr conn) {
+            auto &storedObjects = m == MonitorOrScraper::Monitor
+                                      ? _storedMonitors
+                                      : _storedScrapers;
+            auto it = storedObjects.find(className);
+            if (it != storedObjects.end()) {
+                removeStoredSocket(storedObjects, it);
+            }
+            if (!errc) {
+                KDBG("Sent STOP correctly");
+                conn->asyncReadResponse([=](const error_code &errc,
+                                            const Response &response,
+                                            Connection::Ptr conn) {
+                    if (errc && errc != error::operation_aborted)
+                        m_logger->error(
+                            "Error while waiting for stop response: {}",
+                            errc.message());
+                    else
+                        m_logger->debug("Successfully stopped {}", className);
+                    cb(response, conn);
+                });
+            } else {
+                if (errc != error::operation_aborted)
+                    m_logger->error(errc.message());
+                Response response;
+                response.setError(genericError);
+                response.setInfo("Failed to send the STOP command: " +
+                                 errc.message());
+                cb(response, conn);
+            }
+        });
     });
 }
 

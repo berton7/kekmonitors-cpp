@@ -28,7 +28,7 @@ class Connection : public std::enable_shared_from_this<Connection> {
     void onTimeout(const error_code &);
 
   public:
-    local::stream_protocol::socket p_endpoint;
+    local::stream_protocol::socket p_socket;
 
     explicit Connection(io_context &);
     ~Connection();
