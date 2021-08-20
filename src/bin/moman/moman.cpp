@@ -88,10 +88,11 @@ MonitorManager::MonitorManager(io_context &io)
 
     for (const auto &file :
          fs::directory_iterator{utils::getLocalKekDir() + "/sockets/"}) {
-        const auto filepath = file.path();
+        const auto &filepath = file.path();
+        const auto filepathStr = filepath.string();
         const std::string filename = filepath.filename();
-        if (is_socket(filepath) && filename != "MonitorManager") {
-            checkSocketAndUpdateList(filepath, filename, IN_CREATE);
+        if (is_socket(filepathStr) && filename != "MonitorManager") {
+            checkSocketAndUpdateList(filepathStr, filename, IN_CREATE);
         }
     }
 
