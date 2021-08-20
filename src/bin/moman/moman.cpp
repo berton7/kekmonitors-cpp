@@ -376,7 +376,7 @@ void MonitorManager::checkSocketAndUpdateList(const std::string &socketFullPath,
     }
     auto dotIndex = socketName.rfind(".");
     if (dotIndex == std::string::npos) {
-        KDBG("Invalid socket path: " + socketFullPath);
+        m_logger->error("Invalid socket path: " + socketFullPath);
         return;
     }
     std::string socketPrefix = socketName.substr(0, dotIndex);

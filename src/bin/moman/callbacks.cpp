@@ -1,4 +1,5 @@
 #include "moman.hpp"
+#include <boost/asio/error.hpp>
 #include <boost/process/detail/on_exit.hpp>
 #include <boost/system/detail/errc.hpp>
 #include <functional>
@@ -13,10 +14,9 @@ MonitorScraperCompletion::MonitorScraperCompletion(
     : m_io(io), m_cmd(std::move(cmd)), m_completionCb(std::move(completionCb)),
       m_momanCb(std::move(momanCb)), m_moman(moman),
       m_connection(std::move(connection)) {
-    KDBG("CTOR");
 };
 
-MonitorScraperCompletion::~MonitorScraperCompletion() { KDBG("dtor"); }
+MonitorScraperCompletion::~MonitorScraperCompletion() {}
 
 void MonitorScraperCompletion::run() {
     auto shared = shared_from_this();
@@ -59,7 +59,6 @@ void MonitorScraperCompletion::checkForCompletion(const Response &response) {
 void MonitorManager::shutdown(const Cmd &cmd, const UserResponseCallback &&cb,
                               Connection::Ptr connection) {
     m_logger->info("Shutting down...");
-    KDBG("Received shutdown");
     m_fileWatcher.inotify.Close();
     m_unixServer.shutdown();
     terminateProcesses(_storedMonitors);
@@ -400,19 +399,21 @@ void MonitorManager::onStop(MonitorOrScraper m, const Cmd &cmd,
         }
         if (!errc) {
             KDBG("Sent STOP correctly");
-
             conn->asyncReadResponse([=](const error_code &errc,
                                         const Response &response,
                                         Connection::Ptr conn) {
-                if (errc)
-                    KDBG(errc.message());
+                if (errc && errc != error::operation_aborted)
+                    m_logger->error("Error while waiting for stop response: {}", errc.message());
+                else
+                    m_logger->debug("Successfully stopped {}", className);
                 cb(response, conn);
             });
         } else {
-            KDBG(errc.message());
+            if (errc != error::operation_aborted)
+                m_logger->error(errc.message());
             Response response;
             response.setError(genericError);
-            response.setInfo("Failed to send the STOP command. Errc: " +
+            response.setInfo("Failed to send the STOP command: " +
                              errc.message());
             cb(response, conn);
         }

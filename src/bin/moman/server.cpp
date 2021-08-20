@@ -1,4 +1,5 @@
 #include "server.hpp"
+#include <boost/asio/error.hpp>
 #include <iostream>
 #include <kekmonitors/msg.hpp>
 #include <kekmonitors/utils.hpp>
@@ -48,14 +49,21 @@ void UnixServer::onConnect(const error_code &err,
         connection->asyncReadCmd(std::bind(&UnixServer::_handleCallback, this,
                                            ph::_1, ph::_2, connection));
         startAccepting();
-    } else if (err != error::operation_aborted)
-        KDBG(err.message());
+    } else {
+        if (err != error::operation_aborted){
+	    if (m_acceptor->is_open())
+            m_logger->error("Error while accepting connection: {}",
+                            err.message());
+	}else
+            startAccepting();
+    }
 }
 
 void UnixServer::_handleCallback(const error_code &err, const Cmd &cmd,
                                  std::shared_ptr<Connection> connection) {
     if (err) {
-        KDBG("Error: " + err.message());
+        if (err != error::operation_aborted)
+            m_logger->error("Error while reading CMD: {}", err.message());
         return;
     }
     auto command = static_cast<uint32_t>(cmd.cmd());

@@ -38,12 +38,11 @@ const std::string Config::s_defaultConfig = boost::str(
     utils::getLocalKekDir() % utils::getLocalKekDir());
 
 Config::Config() {
-    KDBG("Config constructor");
     std::string configPath = utils::getLocalKekDir() + "/config/config.cfg";
     utils::getContentIfFileExistsElseCreate(configPath, s_defaultConfig);
     pt::read_ini(configPath, p_parser);
 }
-Config::~Config() { KDBG("Config destructor"); }
+Config::~Config() {}
 
 Config &getConfig()
 {
