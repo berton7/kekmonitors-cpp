@@ -40,7 +40,7 @@ Cmd Cmd::fromJson(const json &obj, error_code &ec)
 json Cmd::toJson() const {
     json j;
     j["_Cmd__cmd"] = m_cmd;
-    if (!m_payload.empty())
+    if (!m_payload.is_null())
         j["_Cmd__payload"] = m_payload;
     return j;
 };
@@ -111,7 +111,7 @@ json Response::toJson() const {
     j["_Response__error"] = m_error;
     if (!m_info.empty())
         j["_Response__info"] = m_info;
-    if (!m_payload.empty())
+    if (!m_payload.is_null())
         j["_Response__payload"] = m_payload;
     return j;
 };
