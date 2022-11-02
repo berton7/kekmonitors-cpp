@@ -45,5 +45,10 @@ class Connection : public std::enable_shared_from_this<Connection> {
     void asyncReadResponse(
         std::function<void(const error_code &, const Response &, Ptr)> &&,
         const steady_timer::duration &timeout = std::chrono::seconds(3));
+
+    void quickWriteCmd(
+        const Cmd &, std::function<void(const Response &)> &&cb,
+        std::function<void(const error_code &)> on_any_error =
+            [](const error_code &ec) {});
 };
 } // namespace kekmonitors

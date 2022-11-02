@@ -122,4 +122,23 @@ void Connection::asyncReadResponse(
                });
 }
 
+void Connection::quickWriteCmd(
+    const Cmd &cmd, std::function<void(const Response &)> &&cb,
+    std::function<void(const error_code &ec)> on_any_error) {
+    asyncWriteCmd(cmd, [=](const error_code &errc, Ptr conn) {
+        if (errc) {
+            on_any_error(errc);
+            return;
+        }
+        conn->asyncReadResponse(
+            [=](const error_code &errc, const Response &resp, Ptr conn) {
+                if (errc) {
+                    on_any_error(errc);
+                    return;
+                }
+                cb(resp);
+            });
+    });
+}
+
 } // namespace kekmonitors
