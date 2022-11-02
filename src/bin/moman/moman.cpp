@@ -450,22 +450,42 @@ void MonitorManager::checkSocketAndUpdateList(const std::string &socketFullPath,
     auto it = map.find(className);
     switch (mask) {
     case IN_CREATE:
-        KDBG(fmt::format("Socket {} was inserted", className));
         if (it != map.end()) {
             auto &storedObject = it->second;
             storedObject.p_endpoint =
                 std::make_unique<local::stream_protocol::endpoint>(
                     socketFullPath);
             if (storedObject.p_isBeingAdded) {
+                verifySocketIsCommunicating(
+                    m, socketFullPath, className, [=]() {
+                        auto &storedObject = it->second;
                 storedObject.p_confirmAdded = true;
                 storedObject.p_onAddTimer->cancel();
+                        m_logger->info(fmt::format(
+                            "{} {} added",
+                            m == MonitorOrScraper::Monitor ? "Monitor"
+                                                           : "Scraper",
+                            className));
+                    });
+            } else {
+                m_logger->warn(fmt::format(
+                    "{} {}: found socket but not synchronized with "
+                    "MonitorManager",
+                    m == MonitorOrScraper::Monitor ? "Monitor" : "Scraper",
+                    className));
             }
         } else {
+            verifySocketIsCommunicating(m, socketFullPath, className, [=]() {
             StoredObject obj(className);
-            obj.p_endpoint = std::make_unique<local::stream_protocol::endpoint>(
+                obj.p_endpoint =
+                    std::make_unique<local::stream_protocol::endpoint>(
                 socketFullPath);
+                auto &map = m == MonitorOrScraper::Monitor ? _storedMonitors
+                                                           : _storedScrapers;
+                auto pair =
             map.emplace(std::make_pair(className, std::move(obj)));
-        }
+            });
+        };
         break;
     case IN_DELETE:
         if (it != map.end()) {
