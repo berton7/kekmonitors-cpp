@@ -79,6 +79,11 @@ class MonitorManager {
     void sendCmdIfProcess(const MonitorOrScraper, const Cmd &cmd,
                  const std::string &className);
 
+    void verifySocketIsCommunicating(MonitorOrScraper m,
+                                     const std::string &socketFullPath,
+                                     const std::string &className,
+                                     std::function<void()> &&on_success);
+
   public:
     MonitorManager() = delete;
     explicit MonitorManager(boost::asio::io_context &io);

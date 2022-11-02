@@ -369,6 +369,60 @@ void MonitorManager::onProcessExit(int exit, const std::error_code &ec,
     }
 }
 
+void MonitorManager::verifySocketIsCommunicating(
+    MonitorOrScraper m, const std::string &socketFullPath,
+    const std::string &className, std::function<void()> &&on_success) {
+
+    auto newConn = Connection::create(m_io);
+    const auto &&on_connect = [=]() {
+        Cmd newCmd;
+        newCmd.setCmd(COMMANDS::PING);
+        newConn->quickWriteCmd(
+            newCmd,
+            [=](const Response &resp) {
+                if (resp.error()) {
+                    m_logger->debug("{} {} responded with error",
+                                    m == MonitorOrScraper::Monitor ? "Monitor"
+                                                                   : "Scraper",
+                                    className);
+                    return;
+                }
+                m_logger->info("{} {} found",
+                               m == MonitorOrScraper::Monitor ? "Monitor"
+                                                              : "Scraper",
+                               className);
+                on_success();
+            },
+            [=](const error_code &errc) {
+                m_logger->warn("Failed to communicate with {} {}, error: {}",
+                               m == MonitorOrScraper::Monitor ? "Monitor"
+                                                              : "Scraper",
+                               className, errc.message());
+            });
+    };
+
+    error_code errc;
+    auto ep = local::stream_protocol::endpoint{socketFullPath};
+    newConn->p_endpoint.connect(ep, errc);
+    if (errc) {
+        steady_timer timer{m_io, std::chrono::milliseconds(500)};
+        timer.async_wait([=](const error_code &timer_errc) {
+            if (!timer_errc) {
+                error_code socket_errc;
+                newConn->p_endpoint.connect(ep, socket_errc);
+                if (!socket_errc)
+                    on_connect();
+                else
+                    m_logger->debug("{} {} found but not available",
+                                    m == MonitorOrScraper::Monitor ? "Monitor"
+                                                                   : "Scraper",
+                                    className);
+            }
+        });
+        return;
+    }
+};
+
 void MonitorManager::checkSocketAndUpdateList(const std::string &socketFullPath,
                                               std::string socketName,
                                               uint32_t mask) {
