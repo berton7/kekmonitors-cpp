@@ -95,17 +95,23 @@ fs::path getPythonExecutable() {
     if (pythonExecutable.empty()) {
         for (const auto &pythonExe : {"python", "python3"}) {
             bp::ipstream in;
-            bp::system(std::string{pythonExe} + " --version", bp::std_out > in,
-                       bp::std_err > bp::null);
-            // "Python 2.7.18"
-            // "Python 3.6.12"
             std::string version;
-            std::getline(in, version);
-            if (version[7] == '3') {
-                pythonExecutable = pythonExe;
-                return pythonExecutable;
+            try {
+                bp::system(std::string{pythonExe} + " --version",
+                           bp::std_out > in, bp::std_err > bp::null);
+                // "Python 2.7.18"
+                // "Python 3.6.12"
+                std::getline(in, version);
+                if (version[7] == '3') {
+                    pythonExecutable = pythonExe;
+                    return pythonExecutable;
+                }
+            } catch (bp::process_error &) {
             }
         }
+
+        // no python executable found
+        throw std::exception();
     }
     return pythonExecutable;
 }
