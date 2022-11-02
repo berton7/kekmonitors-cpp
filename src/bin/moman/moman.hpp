@@ -44,7 +44,6 @@ class StoredObject {
           p_isBeingAdded(std::move(other.p_isBeingAdded)),
           p_isBeingStopped(std::move(other.p_isBeingStopped)),
           p_confirmAdded(std::move(other.p_confirmAdded)) {
-        other.p_className = "";
         other.p_isBeingAdded = false;
         other.p_isBeingStopped = false;
         other.p_confirmAdded = false;
